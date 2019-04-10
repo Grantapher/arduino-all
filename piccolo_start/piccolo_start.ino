@@ -57,7 +57,7 @@ col[8][10],   // Column levels for the prior 10 frames
 */
 static const uint8_t PROGMEM
 // This is low-level noise that's subtracted from each FFT output column:
-noise[64] = { 8, 6, 6, 5, 3, 4, 4, 4, 3, 4, 4, 3, 2, 3, 3, 4,
+noise[64] = { 180, 70, 7, 7, 7, 4, 4, 4, 3, 4, 4, 3, 2, 3, 3, 4,
               2, 1, 2, 1, 3, 2, 3, 2, 1, 2, 3, 1, 2, 3, 4, 4,
               3, 2, 2, 2, 2, 2, 2, 1, 3, 2, 2, 2, 2, 2, 2, 2,
               2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 4
@@ -74,31 +74,31 @@ eq[64] = {
 // and weightings of the FFT spectrum output values to use.  Not all
 // buckets are used -- the bottom-most and several at the top are
 // either noisy or out of range or generally not good for a graph.
-col0data[] = {  2,  1,  // # of spectrum bins to merge, index of first
+col0data[] = {  2,  2,  // # of spectrum bins to merge, index of first
                 111,   8
              },           // Weights for each bin
-             col1data[] = {  4,  1,  // 4 bins, starting at index 1
+             col1data[] = {  4,  2,  // 4 bins, starting at index 1
                              19, 186,  38,   2
                           }, // Weights for 4 bins.  Got it now?
-                          col2data[] = {  5,  2,
+                          col2data[] = {  5,  3,
                                           11, 156, 118,  16,   1
                                        },
-                                       col3data[] = {  8,  3,
+                                       col3data[] = {  8,  4,
                                                        5,  55, 165, 164,  71,  18,   4,   1
                                                     },
-                                           col4data[] = { 11,  5,
+                                           col4data[] = { 11,  6,
                                                           3,  24,  89, 169, 178, 118,  54,  20,   6,   2,   1
                                                         },
-                                               col5data[] = { 17,  7,
+                                               col5data[] = { 17,  8,
                                                               2,   9,  29,  70, 125, 172, 185, 162, 118, 74,
                                                               41,  21,  10,   5,   2,   1,   1
                                                             },
-                                                   col6data[] = { 25, 11,
+                                                   col6data[] = { 25, 12,
                                                                   1,   4,  11,  25,  49,  83, 121, 156, 180, 185,
                                                                   174, 149, 118,  87,  60,  40,  25,  16,  10,   6,
                                                                   4,   2,   1,   1,   1
                                                                 },
-                                                       col7data[] = { 37, 16,
+                                                       col7data[] = { 37, 17,
                                                                       1,   2,   5,  10,  18,  30,  46,  67,  92, 118,
                                                                       143, 164, 179, 185, 184, 174, 158, 139, 118,  97,
                                                                       77,  60,  45,  34,  25,  18,  13,   9,   7,   5,
@@ -155,17 +155,31 @@ void setup() {
   sei(); // Enable interrupts
 }
 
-void printArray(byte ray[]) {
+void printArray(uint8_t ray[], size_t raySize) {
   Serial.print("[ ");
-  int i;
-  for (i = 0; i < 8; i++) {
+  size_t i;
+  for (i = 0; i < raySize; i++) {
     sprintf(printBuf, "%2d", ray[i]);
     Serial.print(printBuf);
-    if (i != 7) {
+    if (i != raySize - 1) {
       Serial.print(", ");
     }
   }
   Serial.print(" ]. ");
+  Serial.println();
+}
+
+void printShortArray(uint16_t ray[], size_t raySize) {
+  Serial.print("[");
+  size_t i;
+  for (i = 0; i < raySize; i++) {
+    sprintf(printBuf, i < 20 ? "%3d" : "%2d", ray[i]);
+    Serial.print(printBuf);
+    if (i != raySize - 1) {
+      Serial.print(" ");
+    }
+  }
+  Serial.print("]. ");
   Serial.println();
 }
 
@@ -182,12 +196,16 @@ void loop() {
   fft_execute(bfly_buff);          // Process complex data
   fft_output(bfly_buff, spectrum); // Complex -> spectrum
 
+  //printShortArray(spectrum, 64);
+
   // Remove noise and apply EQ levels
   for (x = 0; x < FFT_N / 2; x++) {
     L = pgm_read_byte(&noise[x]);
     spectrum[x] = (spectrum[x] <= L) ? 0 :
                   (((spectrum[x] - L) * (256L - pgm_read_byte(&eq[x]))) >> 8);
   }
+
+  //  printShortArray(spectrum, 64);
 
   // Downsample spectrum output to 8 columns:
   for (x = 0; x < 8; x++) {
@@ -249,14 +267,18 @@ void loop() {
 
   Wire.beginTransmission(1);
   Wire.write(peak, 8);
-  printArray(peak);
+  printArray(peak, 8);
   Wire.endTransmission();
 
-  // Every third frame, make the peak pixels drop by 1:
-  if (++dotCount >= 4) {
-    dotCount = 0;
-    for (x = 0; x < 8; x++) {
-      if (peak[x] > 0) peak[x]--;
+  if (false) {
+    memset(peak, 0, sizeof(peak));
+  } else {
+    // Every third frame, make the peak pixels drop by 1:
+    if (++dotCount >= 3) {
+      dotCount = 0;
+      for (x = 0; x < 8; x++) {
+        if (peak[x] > 0) peak[x]--;
+      }
     }
   }
 

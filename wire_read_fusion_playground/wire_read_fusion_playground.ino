@@ -1,21 +1,23 @@
 #include <Wire.h>
 #include <FastLED.h>
 
-#define NUM_LEDS 80
+#define NUM_LEDS 72
 #define DATA_PIN 2
 
 #define OUTPUT_A 11
 #define OUTPUT_B 10
 
 #define ROTARY_MAX 50
-#define ROTARY_MIN 1
-#define ROTARY_START 20
+#define ROTARY_MIN 0
+#define ROTARY_START 0
 
 #define TICK_MIN 5
 #define TICK_MAX 500
 
 #define DELTA_HUE 32
 #define NUM_SPOKES 8
+
+
 int SPOKE_LENGTH = NUM_LEDS / NUM_SPOKES;
 
 // I2C input data
@@ -23,7 +25,7 @@ byte input[8];
 
 unsigned int tickPr = 0;
 
-unsigned int rotaryCount = ROTARY_START;
+int16_t rotaryCount = ROTARY_START;
 int aState;
 int aLastState;
 
@@ -67,26 +69,6 @@ void onData(int numBytes) {
   }
 }
 
-/* update rotary encoder */
-void rotaryStateUpdate(void) {
-  aState = digitalRead(OUTPUT_A); // Reads the "current" state of the outputA
-
-  // If the previous and the current state of the outputA are different, that means a Pulse has occured
-  if (aState != aLastState) {
-    int bState = digitalRead(OUTPUT_B);
-
-    // If the outputB state is different to the outputA state, that means the encoder is rotating clockwise
-    if (bState != aState) {
-      rotaryCount = min(ROTARY_MAX, rotaryCount + 1);
-    } else {
-      rotaryCount = max(ROTARY_MIN, rotaryCount - 1);
-    }
-
-  }
-  aLastState = aState; // Updates the previous state of the outputA with the current state
-
-}
-
 int arrayAverage(int8_t ray[], uint8_t startIndex, uint8_t endIndex) {
   float sum = 0;
   for (int i = startIndex; i < endIndex; i++) {
@@ -95,30 +77,24 @@ int arrayAverage(int8_t ray[], uint8_t startIndex, uint8_t endIndex) {
   return sum / (endIndex - startIndex);
 }
 
-void updateLeds() {
-  //Kick();
-  //Spaceship();
-  //glitter();
-  //juggle();
-  //sinelon();
-  //confetti();
-  //WheelManual();
-  //WheelAuto();
-  //flashEQ();
-  brightnessEQ();
-  FastLED.show();
+void KickFlash() {
+  int threshold = 6;
+  fadeToBlackBy( leds, NUM_LEDS, 32);
+  if (input[0] > threshold) {
+    fill_rainbow(leds, NUM_LEDS, 0, 255 / NUM_LEDS);
+  }
 }
 
 uint8_t setting1index = NUM_LEDS / 2;
 uint8_t setting1counter = 0;
 bool active = false;
-void Kick() {
-  //todo 
-  int threshold = 3;
+void KickAndRun() {
+  //todo
+  int threshold = 6;
 
-  fadeToBlackBy( leds, NUM_LEDS, 16);
+  fadeToBlackBy( leds, NUM_LEDS, 32);
 
-  if (input[1] > threshold && !active) {
+  if (input[0] > threshold && !active) {
     active = true;
     setting1counter = 0;
   }
@@ -127,7 +103,7 @@ void Kick() {
     CRGB color;
     fill_rainbow(&color, 1, prevHue, DELTA_HUE);
     prevHue += DELTA_HUE;
-    
+
     leds[getIndex(setting1index, NUM_LEDS, -setting1counter)] = color;
     leds[getIndex(setting1index, NUM_LEDS, +setting1counter)] = color;
     setting1counter++;
@@ -212,7 +188,7 @@ bool Wheel_high = false;
 
 void WheelAuto() {
   //todo configure potentiometer to control threshold. perhaps add beat detection if possible?
-  bool thresholdMet = arrayAverage(input, 0, 1) >= 8.7;
+  bool thresholdMet = input[0] >= 6;
 
   if (!thresholdMet) {
     fadeToBlackBy(leds, NUM_LEDS, 16);
@@ -252,59 +228,46 @@ void WheelManual() {
   }
 }
 
-void flashEQ() {
-  //todo fuck with the constants
-  int8_t x, y, i;
-
-  fadeToBlackBy( leds, NUM_LEDS, 64);
-
-  double m = 1;
-
-  CRGB color = CRGB::Orange; //getColor(wheelVal);
-
-  for (x = 0; x < 8; x++) {
-    switch (x) {
-      case 0:
-        y = map(input[0] * m, 7, 10, 0, SPOKE_LENGTH);
-        break;
-      case 1:
-        y = map(input[1] * 0.9 * m, 1, 10, 0, SPOKE_LENGTH);
-        break;
-      case 2:
-        y = map(min(input[2] * 4 * m, 10), 0, 10, 0, SPOKE_LENGTH);
-        break;
-      case 3:
-        y = map(min(input[3] * 2 * m, 10), 0, 10, 0, SPOKE_LENGTH);
-        break;
-      case 4:
-        y = map(min(input[4] * m, 10), 0, 10, 0, SPOKE_LENGTH);
-        break;
-      case 5:
-        y = map(min(input[5] * 2 * m, 10), 0, 10, 0, SPOKE_LENGTH);
-        break;
-      case 6:
-        y = map(min(input[6] * 2 * m, 10), 0, 10, 0, SPOKE_LENGTH);
-        break;
-      case 7:
-        y = map(min(input[7] * 4 * m, 10), 0, 10, 0, SPOKE_LENGTH);
-        break;
-      case 8:
-        y = map(input[x] * m, 0, 10, 0, SPOKE_LENGTH);
-        break;
-    }
-    y = min(SPOKE_LENGTH, max(0, y));
-
-    fill_rainbow(&(leds[x * SPOKE_LENGTH]), y, 0, DELTA_HUE);
+void EQ() {
+  fadeToBlackBy( leds, NUM_LEDS, 32);
+  for (size_t x = 0; x < 8; x++) {
+    fill_rainbow(&(leds[x * SPOKE_LENGTH]), map(input[x], 0, 10, 0, SPOKE_LENGTH), 0, DELTA_HUE);
   }
 }
 
-void brightnessEQ() {
-  //todo brighten based on change from previous audio state?
-  fill_rainbow(leds, NUM_LEDS, 0, DELTA_HUE);
-  for (int i = 0; i < NUM_LEDS; i++) {
-    int brightness = map(input[i % 8], 0, 10, 0xFF, 0x00);
-    leds[i] = leds[i].fadeToBlackBy(brighten8_video(brightness));
+typedef void (*LedFunctionArray[])(void);
+LedFunctionArray gPatterns = { KickFlash, KickAndRun, Spaceship, glitter, juggle, sinelon, confetti, WheelManual, WheelAuto, EQ };
+size_t gPatternsSize = sizeof(gPatterns) / sizeof(gPatterns[0]);
+
+int16_t prevRotary = rotaryCount;
+
+void updateLeds() {
+  if (prevRotary != rotaryCount) FastLED.clear();
+  prevRotary = rotaryCount;
+  gPatterns[rotaryCount / 2]();
+  FastLED.show();
+}
+
+/* update rotary encoder */
+void rotaryStateUpdate(void) {
+  //todo encoder moves two spaces at a time, perhaps timebox state changes
+  aState = digitalRead(OUTPUT_A); // Reads the "current" state of the outputA
+
+  // If the previous and the current state of the outputA are different, that means a Pulse has occured
+  if (aState != aLastState) {
+    int bState = digitalRead(OUTPUT_B);
+
+    // If the outputB state is different to the outputA state, that means the encoder is rotating clockwise
+    if (bState != aState) {
+      rotaryCount++;
+      if(rotaryCount >= gPatternsSize * 2) rotaryCount = 0;
+    } else {
+      rotaryCount--;
+      if(rotaryCount < 0) rotaryCount = gPatternsSize * 2 - 1;
+    }
+
   }
+  aLastState = aState; // Updates the previous state of the outputA with the current state
 }
 
 void printArray(byte ray[]) {
