@@ -1,7 +1,7 @@
 #include <Wire.h>
 #include <FastLED.h>
 
-#define NUM_LEDS 72
+#define NUM_LEDS 300
 #define DATA_PIN 2
 
 #define OUTPUT_A 11
@@ -9,7 +9,7 @@
 
 #define ROTARY_MAX 50
 #define ROTARY_MIN 0
-#define ROTARY_START 0
+#define ROTARY_START 2
 
 #define TICK_MIN 5
 #define TICK_MAX 500
@@ -36,6 +36,9 @@ char printBuf[16];
 
 uint8_t prevHue = 0;
 
+uint16_t maxDots = NUM_LEDS / 2;
+int16_t dots[NUM_LEDS / 2];
+
 CRGBArray <NUM_LEDS> leds;
 int hue = 0;
 int pix = 0;
@@ -60,6 +63,9 @@ void setup() {
   //setup data sending from sound arduino
   Wire.begin(1);
   Wire.onReceive(onData);
+
+  // fill state array with -1s
+  memset(dots, -1, sizeof(dots));
 }
 
 void onData(int numBytes) {
@@ -78,39 +84,43 @@ int arrayAverage(int8_t ray[], uint8_t startIndex, uint8_t endIndex) {
 }
 
 void KickFlash() {
-  int threshold = 6;
-  fadeToBlackBy( leds, NUM_LEDS, 32);
+  int threshold = 0;
+  fadeToBlackBy( leds, NUM_LEDS, 64);
   if (input[0] > threshold) {
     fill_rainbow(leds, NUM_LEDS, 0, 255 / NUM_LEDS);
   }
 }
 
-uint8_t setting1index = NUM_LEDS / 2;
-uint8_t setting1counter = 0;
-bool active = false;
+uint16_t dotIndex = 0;
 void KickAndRun() {
-  //todo
-  int threshold = 6;
+  // todo make threshold configurable
+  int threshold = 0;
 
-  fadeToBlackBy( leds, NUM_LEDS, 32);
+  fadeToBlackBy( leds, NUM_LEDS, 128);
 
-  if (input[0] > threshold && !active) {
-    active = true;
-    setting1counter = 0;
+  uint16_t i;
+  //increment active dots
+  for (i = 0; i < maxDots; i++) {
+    if (dots[i] >= 0) dots[i]++;
+    if (dots[i] > maxDots) dots[i] = -1;
   }
 
-  if (setting1counter <= NUM_LEDS / 2 && active) {
-    CRGB color;
-    fill_rainbow(&color, 1, prevHue, DELTA_HUE);
-    prevHue += DELTA_HUE;
-
-    leds[getIndex(setting1index, NUM_LEDS, -setting1counter)] = color;
-    leds[getIndex(setting1index, NUM_LEDS, +setting1counter)] = color;
-    setting1counter++;
-  } else {
-    active = false;
+  if (input[0] > threshold) {
+    dots[dotIndex] = 0;
+    dotIndex = (dotIndex + 1) % maxDots;
   }
 
+  CRGB color;
+  uint16_t ledIndex;
+  for (i = 0; i < maxDots; i++) {
+    if (dots[i] >= 0) {
+      ledIndex = dots[i];
+      fill_rainbow(&color, 1, map(ledIndex, 0, maxDots, 0, 255), DELTA_HUE);
+
+      leds[getIndex(maxDots, NUM_LEDS, -ledIndex)] = color;
+      leds[getIndex(maxDots, NUM_LEDS, +ledIndex)] = color;
+    }
+  }
 }
 
 // Utility function to wrap array index
@@ -188,7 +198,7 @@ bool Wheel_high = false;
 
 void WheelAuto() {
   //todo configure potentiometer to control threshold. perhaps add beat detection if possible?
-  bool thresholdMet = input[0] >= 6;
+  bool thresholdMet = input[0] >= 2;
 
   if (!thresholdMet) {
     fadeToBlackBy(leds, NUM_LEDS, 16);
@@ -213,7 +223,7 @@ void WheelAuto() {
   }
 }
 
-uint8_t state = 0;
+uint16_t state = 0;
 
 void WheelManual() {
   //todo configure speed with potentiometer, add
@@ -242,7 +252,10 @@ size_t gPatternsSize = sizeof(gPatterns) / sizeof(gPatterns[0]);
 int16_t prevRotary = rotaryCount;
 
 void updateLeds() {
-  if (prevRotary != rotaryCount) FastLED.clear();
+  if (prevRotary != rotaryCount) {
+    FastLED.clear();
+    memset(dots, -1, sizeof(dots));
+  }
   prevRotary = rotaryCount;
   gPatterns[rotaryCount / 2]();
   FastLED.show();
@@ -260,10 +273,10 @@ void rotaryStateUpdate(void) {
     // If the outputB state is different to the outputA state, that means the encoder is rotating clockwise
     if (bState != aState) {
       rotaryCount++;
-      if(rotaryCount >= gPatternsSize * 2) rotaryCount = 0;
+      if (rotaryCount >= gPatternsSize * 2) rotaryCount = 0;
     } else {
       rotaryCount--;
-      if(rotaryCount < 0) rotaryCount = gPatternsSize * 2 - 1;
+      if (rotaryCount < 0) rotaryCount = gPatternsSize * 2 - 1;
     }
 
   }

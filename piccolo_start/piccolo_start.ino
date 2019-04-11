@@ -270,7 +270,7 @@ void loop() {
   printArray(peak, 8);
   Wire.endTransmission();
 
-  if (false) {
+  if (true) {
     memset(peak, 0, sizeof(peak));
   } else {
     // Every third frame, make the peak pixels drop by 1:
