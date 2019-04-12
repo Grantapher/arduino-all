@@ -1,6 +1,11 @@
 #include <Wire.h>
 #include <FastLED.h>
 
+// Log all to Serial, comment this line to disable logging
+#define LOG Serial
+// Include must be placed after LOG definition to work
+#include "log.h"
+
 #define NUM_LEDS 300
 #define DATA_PIN 2
 
@@ -9,7 +14,7 @@
 
 #define ROTARY_MAX 50
 #define ROTARY_MIN 0
-#define ROTARY_START 2
+#define ROTARY_START 0
 
 #define TICK_MIN 5
 #define TICK_MAX 500
@@ -32,41 +37,17 @@ int aLastState;
 unsigned long startMs;
 unsigned long startMsPr;
 
-char printBuf[16];
-
 uint8_t prevHue = 0;
 
 uint16_t maxDots = NUM_LEDS / 2;
 int16_t dots[NUM_LEDS / 2];
 
+// todo make threshold configurable
+uint8_t threshold = 3;
+
 CRGBArray <NUM_LEDS> leds;
 int hue = 0;
 int pix = 0;
-
-/* Main setup code. */
-void setup() {
-  Serial.begin(115200);
-  delay(250);
-
-  FastLED.addLeds <WS2812B, DATA_PIN, GRB> (leds, NUM_LEDS);
-
-  // Setup input pins
-  pinMode(OUTPUT_A, INPUT);
-  pinMode(OUTPUT_B, INPUT);
-
-  // Reads the initial state of rotary
-  aLastState = digitalRead(OUTPUT_A);
-
-  // start clock
-  startMs = millis();
-
-  //setup data sending from sound arduino
-  Wire.begin(1);
-  Wire.onReceive(onData);
-
-  // fill state array with -1s
-  memset(dots, -1, sizeof(dots));
-}
 
 void onData(int numBytes) {
   int i = 0;
@@ -84,7 +65,6 @@ int arrayAverage(int8_t ray[], uint8_t startIndex, uint8_t endIndex) {
 }
 
 void KickFlash() {
-  int threshold = 0;
   fadeToBlackBy( leds, NUM_LEDS, 64);
   if (input[0] > threshold) {
     fill_rainbow(leds, NUM_LEDS, 0, 255 / NUM_LEDS);
@@ -93,10 +73,7 @@ void KickFlash() {
 
 uint16_t dotIndex = 0;
 void KickAndRun() {
-  // todo make threshold configurable
-  int threshold = 0;
-
-  fadeToBlackBy( leds, NUM_LEDS, 128);
+  fadeToBlackBy( leds, NUM_LEDS, rotaryCount ? 255 : 128);
 
   uint16_t i;
   //increment active dots
@@ -115,7 +92,7 @@ void KickAndRun() {
   for (i = 0; i < maxDots; i++) {
     if (dots[i] >= 0) {
       ledIndex = dots[i];
-      fill_rainbow(&color, 1, map(ledIndex, 0, maxDots, 0, 255), DELTA_HUE);
+      fill_rainbow(&color, 1, map(ledIndex, 0, maxDots, 255, 0), DELTA_HUE);
 
       leds[getIndex(maxDots, NUM_LEDS, -ledIndex)] = color;
       leds[getIndex(maxDots, NUM_LEDS, +ledIndex)] = color;
@@ -173,8 +150,7 @@ void juggle() {
   }
 }
 
-void sinelon()
-{
+void sinelon() {
   // a colored dot sweeping back and forth, with fading trails
   fadeToBlackBy( leds, NUM_LEDS, 10);
   int pos = beatsin16(13, 0, NUM_LEDS);
@@ -195,10 +171,9 @@ void confetti() {
 
 int Wheel_i = 0;
 bool Wheel_high = false;
-
 void WheelAuto() {
-  //todo configure potentiometer to control threshold. perhaps add beat detection if possible?
-  bool thresholdMet = input[0] >= 2;
+  //todo perhaps add beat detection if possible?
+  bool thresholdMet = input[0] >= threshold;
 
   if (!thresholdMet) {
     fadeToBlackBy(leds, NUM_LEDS, 16);
@@ -210,7 +185,7 @@ void WheelAuto() {
   }
 
   uint64_t currentMs = millis();
-  if (thresholdMet && !Wheel_high && currentMs - startMs >= 100) {
+  if (thresholdMet && !Wheel_high && currentMs - startMs >= 50) {
     Wheel_high = true;
 
     Wheel_i = (Wheel_i + 1) % NUM_SPOKES;
@@ -224,7 +199,6 @@ void WheelAuto() {
 }
 
 uint16_t state = 0;
-
 void WheelManual() {
   //todo configure speed with potentiometer, add
   fadeToBlackBy(leds, NUM_LEDS, 5);
@@ -246,7 +220,8 @@ void EQ() {
 }
 
 typedef void (*LedFunctionArray[])(void);
-LedFunctionArray gPatterns = { KickFlash, KickAndRun, Spaceship, glitter, juggle, sinelon, confetti, WheelManual, WheelAuto, EQ };
+LedFunctionArray gPatterns = { KickAndRun, KickAndRun, KickFlash, Spaceship, glitter, juggle, sinelon, confetti, WheelManual, WheelAuto, EQ };
+bool patternRawStatus[] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0 };
 size_t gPatternsSize = sizeof(gPatterns) / sizeof(gPatterns[0]);
 
 int16_t prevRotary = rotaryCount;
@@ -283,54 +258,68 @@ void rotaryStateUpdate(void) {
   aLastState = aState; // Updates the previous state of the outputA with the current state
 }
 
-void printArray(byte ray[]) {
-  Serial.print("[ ");
+void printArray(byte ray[], size_t len) {
+  log_print("[ ");
   int i;
-  for (i = 0; i < 8; i++) {
-    sprintf(printBuf, "%2d", ray[i]);
-    Serial.print(printBuf);
+  for (i = 0; i < len; i++) {
+    log_printf("%2d", ray[i]);
     if (i != 7) {
-      Serial.print(", ");
+      log_print(", ");
     }
   }
-  Serial.print(" ]. ");
+  log_print(" ]. ");
 }
 
 /* Handle going from one state to the next. */
 void advanceState() {
   updateLeds();
 
-  printArray(input);
-
-  sprintf(printBuf, "%2u", rotaryCount);
-  Serial.print("Counter: ");
-  Serial.print(printBuf);
-  Serial.print(". ");
-
-  sprintf(printBuf, "%3u", tickPr);
-  Serial.print("tick: ");
-  Serial.print(printBuf);
-  Serial.print(". ");
-
-  Serial.println();
+  printArray(input, 8);
+  log_printf("Rotary: %2u. ", rotaryCount);
+  log_printf("Tick: %3u. ", tickPr);
+  log_println();
 }
 
 /* Check if a new tick has passed. */
 bool updateTick() {
   unsigned long currentMs = millis();
-  //  bool tickUpdate = currentMs - startMs > tickSize;
-  //  if (tickUpdate) {
   tickPr = currentMs - startMsPr;
   startMsPr = currentMs;
-  //  }
-  //  return tickUpdate;
-  return true;
+}
+
+
+void onReq(int numBytes) {
+  Wire.write(patternRawStatus[rotaryCount / 2]);
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(250);
+
+  FastLED.addLeds <WS2812B, DATA_PIN, GRB> (leds, NUM_LEDS);
+
+  // Setup input pins
+  pinMode(OUTPUT_A, INPUT);
+  pinMode(OUTPUT_B, INPUT);
+
+  // Reads the initial state of rotary
+  aLastState = digitalRead(OUTPUT_A);
+
+  // start clock
+  startMs = millis();
+
+  //setup data sending from sound arduino
+  Wire.begin(1);
+  Wire.onReceive(onData);
+  Wire.onRequest(onReq);
+
+  // fill state array with -1s
+  memset(dots, -1, sizeof(dots));
 }
 
 /* Main loop code */
 void loop() {
   rotaryStateUpdate();
-  bool newTick = updateTick();
-  if (newTick)
-    advanceState();
+  updateTick();
+  advanceState();
 }

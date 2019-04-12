@@ -3,6 +3,11 @@
 #include <avr/pgmspace.h>
 #include <ffft.h>
 
+// Log all to Serial, comment this line to disable logging
+#define LOG Serial
+// Include must be placed after LOG definition to work
+#include "log.h"
+
 /*
     PICCOLO is a tiny Arduino-based audio visualizer.
 
@@ -26,6 +31,9 @@
 
     ffft library is provided under its own terms -- see ffft.S for specifics.
 */
+
+// variable to disable smoothing
+bool raw = false;
 
 // IMPORTANT: FFT_N should be #defined as 128 in ffft.h.
 
@@ -74,59 +82,59 @@ eq[64] = {
 // and weightings of the FFT spectrum output values to use.  Not all
 // buckets are used -- the bottom-most and several at the top are
 // either noisy or out of range or generally not good for a graph.
-col0data[] = {  2,  2,  // # of spectrum bins to merge, index of first
-                111,   8
-             },           // Weights for each bin
-             col1data[] = {  4,  2,  // 4 bins, starting at index 1
-                             19, 186,  38,   2
-                          }, // Weights for 4 bins.  Got it now?
-                          col2data[] = {  5,  3,
-                                          11, 156, 118,  16,   1
-                                       },
-                                       col3data[] = {  8,  4,
-                                                       5,  55, 165, 164,  71,  18,   4,   1
-                                                    },
-                                           col4data[] = { 11,  6,
-                                                          3,  24,  89, 169, 178, 118,  54,  20,   6,   2,   1
-                                                        },
-                                               col5data[] = { 17,  8,
-                                                              2,   9,  29,  70, 125, 172, 185, 162, 118, 74,
-                                                              41,  21,  10,   5,   2,   1,   1
-                                                            },
-                                                   col6data[] = { 25, 12,
-                                                                  1,   4,  11,  25,  49,  83, 121, 156, 180, 185,
-                                                                  174, 149, 118,  87,  60,  40,  25,  16,  10,   6,
-                                                                  4,   2,   1,   1,   1
-                                                                },
-                                                       col7data[] = { 37, 17,
-                                                                      1,   2,   5,  10,  18,  30,  46,  67,  92, 118,
-                                                                      143, 164, 179, 185, 184, 174, 158, 139, 118,  97,
-                                                                      77,  60,  45,  34,  25,  18,  13,   9,   7,   5,
-                                                                      3,   2,   2,   1,   1,   1,   1
-                                                                    },
-                                                           // And then this points to the start of the data for each of the columns:
+col0data[] = {
+  2,  2,  // # of spectrum bins to merge, index of first
+  111,   8  // Weights for each bin
+},
+col1data[] = {
+  4,  2,  // 4 bins, starting at index 1
+  19, 186,  38,   2 // Weights for 4 bins.  Got it now?
+},
+col2data[] = {
+  5,  3,
+  11, 156, 118,  16,   1
+},
+col3data[] = {
+  8,  4,
+  5,  55, 165, 164,  71,  18,   4,   1
+},
+col4data[] = {
+  11,  6,
+  3,  24,  89, 169, 178, 118,  54,  20,   6,   2,   1
+},
+col5data[] = {
+  17,  8,
+  2,   9,  29,  70, 125, 172, 185, 162, 118, 74,
+  41,  21,  10,   5,   2,   1,   1
+},
+col6data[] = {
+  25, 12,
+  1,   4,  11,  25,  49,  83, 121, 156, 180, 185,
+  174, 149, 118,  87,  60,  40,  25,  16,  10,   6,
+  4,   2,   1,   1,   1
+},
+col7data[] = {
+  37, 17,
+  1,   2,   5,  10,  18,  30,  46,  67,  92, 118,
+  143, 164, 179, 185, 184, 174, 158, 139, 118,  97,
+  77,  60,  45,  34,  25,  18,  13,   9,   7,   5,
+  3,   2,   2,   1,   1,   1,   1
+},
+// And then this points to the start of the data for each of the columns:
 * const colData[]  = {
   col0data, col1data, col2data, col3data,
   col4data, col5data, col6data, col7data
 };
-/*
-    unsigned long potStartMs;
-    unsigned long potCurrentMs;
-    int potVal = 0;
-*/
-
-char printBuf[16];
 
 void setup() {
   Serial.begin(115200);
   uint8_t i, j, nBins, binNum, *data;
 
-  // Serial.begin(115200);
-  // Serial.println("Master is here");
-
   pinMode(13, OUTPUT);
 
   Wire.begin();
+  Wire.requestFrom(1, 1);
+  raw = Wire.read();
 
   memset(peak, 0, sizeof(peak));
   memset(col , 0, sizeof(col));
@@ -156,34 +164,33 @@ void setup() {
 }
 
 void printArray(uint8_t ray[], size_t raySize) {
-  Serial.print("[ ");
+  log_print("[ ");
   size_t i;
   for (i = 0; i < raySize; i++) {
-    sprintf(printBuf, "%2d", ray[i]);
-    Serial.print(printBuf);
+    log_printf("%2d", ray[i]);
     if (i != raySize - 1) {
-      Serial.print(", ");
+      log_print(", ");
     }
   }
-  Serial.print(" ]. ");
-  Serial.println();
+  log_print(" ]. ");
 }
 
 void printShortArray(uint16_t ray[], size_t raySize) {
-  Serial.print("[");
+  log_print("[");
   size_t i;
   for (i = 0; i < raySize; i++) {
-    sprintf(printBuf, i < 20 ? "%3d" : "%2d", ray[i]);
-    Serial.print(printBuf);
+    log_printf("%3d", ray[i]);
     if (i != raySize - 1) {
-      Serial.print(" ");
+      log_print(" ");
     }
   }
-  Serial.print("]. ");
-  Serial.println();
+  log_print("]. ");
 }
 
 void loop() {
+  Wire.requestFrom(1, 1);
+  raw = Wire.read();
+
   uint8_t  i, x, L, *data, nBins, binNum, weighting, c;
   uint16_t minLvl, maxLvl;
   int      level, y, sum;
@@ -215,23 +222,29 @@ void loop() {
     for (sum = 0, i = 2; i < nBins; i++)
       sum += spectrum[binNum++] * pgm_read_byte(&data[i]); // Weighted
     col[x][colCount] = sum / colDiv[x];                    // Average
-    minLvl = maxLvl = col[x][0];
-    for (i = 1; i < 10; i++) { // Get range of prior 10 frames
-      if (col[x][i] < minLvl)      minLvl = col[x][i];
-      else if (col[x][i] > maxLvl) maxLvl = col[x][i];
-    }
-    // minLvl and maxLvl indicate the extents of the FFT output, used
-    // for vertically scaling the output graph (so it looks interesting
-    // regardless of volume level).  If they're too close together though
-    // (e.g. at very low volume levels) the graph becomes super coarse
-    // and 'jumpy'...so keep some minimum distance between them (this
-    // also lets the graph go to zero when no sound is playing):
-    if ((maxLvl - minLvl) < 8) maxLvl = minLvl + 8;
-    minLvlAvg[x] = (minLvlAvg[x] * 7 + minLvl) >> 3; // Dampen min/max levels
-    maxLvlAvg[x] = (maxLvlAvg[x] * 7 + maxLvl) >> 3; // (fake rolling average)
 
-    // Second fixed-point scale based on dynamic min/max levels:
-    level = 10L * (col[x][colCount] - minLvlAvg[x]) / (long)(maxLvlAvg[x] - minLvlAvg[x]);
+
+    if (raw) {
+      level = col[x][colCount];
+    } else {
+      minLvl = maxLvl = col[x][0];
+      for (i = 1; i < 10; i++) { // Get range of prior 10 frames
+        if (col[x][i] < minLvl)      minLvl = col[x][i];
+        else if (col[x][i] > maxLvl) maxLvl = col[x][i];
+      }
+      // minLvl and maxLvl indicate the extents of the FFT output, used
+      // for vertically scaling the output graph (so it looks interesting
+      // regardless of volume level).  If they're too close together though
+      // (e.g. at very low volume levels) the graph becomes super coarse
+      // and 'jumpy'...so keep some minimum distance between them (this
+      // also lets the graph go to zero when no sound is playing):
+      if ((maxLvl - minLvl) < 8) maxLvl = minLvl + 8;
+      minLvlAvg[x] = (minLvlAvg[x] * 7 + minLvl) >> 3; // Dampen min/max levels
+      maxLvlAvg[x] = (maxLvlAvg[x] * 7 + maxLvl) >> 3; // (fake rolling average)
+
+      // Second fixed-point scale based on dynamic min/max levels:
+      level = 10L * (col[x][colCount] - minLvlAvg[x]) / (long)(maxLvlAvg[x] - minLvlAvg[x]);
+    }
 
     // Clip output and convert to byte:
     if (level < 0L)      c = 0;
@@ -239,26 +252,8 @@ void loop() {
     else                c = (uint8_t)level;
 
     if (c > peak[x]) peak[x] = c; // Keep dot on top
-
-    if (peak[x] <= 0) { // Empty column?
-      // matrix.drawLine(x, 0, x, 7, LED_OFF);
-      // continue;
-    } else if (c < 8) { // Partial column?
-      // matrix.drawLine(x, 0, x, 7 - c, LED_OFF);
-    }
-
-    // The 'peak' dot color varies, but doesn't necessarily match
-    // the three screen regions...yellow has a little extra influence.
-    /*
-        y = peak[x];// 8 - peak[x];
-        if(y > 8) y = 8;
-        for(i=0; i<y; i++) {
-        leds[i + x*8].setRGB(0, 0, 255);
-        }
-    */
   }
 
-  //Serial.println(peak[1]);
   if (peak[1] > 8) {
     digitalWrite(13, HIGH);
   } else {
@@ -267,10 +262,13 @@ void loop() {
 
   Wire.beginTransmission(1);
   Wire.write(peak, 8);
-  printArray(peak, 8);
   Wire.endTransmission();
 
-  if (true) {
+  printArray(peak, 8);
+  log_printf("raw: %u. ", raw);
+  log_println();
+
+  if (raw) {
     memset(peak, 0, sizeof(peak));
   } else {
     // Every third frame, make the peak pixels drop by 1:
