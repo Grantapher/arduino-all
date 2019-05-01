@@ -1,20 +1,23 @@
 #include <Wire.h>
 #include <FastLED.h>
-
+#include <MD_REncoder.h>
 // Log all to Serial, comment this line to disable logging
 #define LOG Serial
 // Include must be placed after LOG definition to work
 #include "log.h"
+#include "wire_read_fusion_playground.h"
 
-#define NUM_LEDS 300
+#define NUM_LEDS 150
 #define DATA_PIN 2
 
-#define OUTPUT_A 11
-#define OUTPUT_B 10
+#define FUNCTION_ROTARY_INPUT_A 7
+#define FUNCTION_ROTARY_INPUT_B 8
+#define FUNCTION_ROTARY_START 6
 
-#define ROTARY_MAX 50
-#define ROTARY_MIN 0
-#define ROTARY_START 0
+#define THRESHOLD_ROTARY_INPUT_A 9
+#define THRESHOLD_ROTARY_INPUT_B 10
+#define THRESHOLD_ROTARY_START 2
+#define THRESHOLD_MAX 10
 
 #define TICK_MIN 5
 #define TICK_MAX 500
@@ -22,6 +25,7 @@
 #define DELTA_HUE 32
 #define NUM_SPOKES 8
 
+#define BRIGHTNESS 0x80
 
 int SPOKE_LENGTH = NUM_LEDS / NUM_SPOKES;
 
@@ -29,10 +33,6 @@ int SPOKE_LENGTH = NUM_LEDS / NUM_SPOKES;
 byte input[8];
 
 unsigned int tickPr = 0;
-
-int16_t rotaryCount = ROTARY_START;
-int aState;
-int aLastState;
 
 unsigned long startMs;
 unsigned long startMsPr;
@@ -42,12 +42,16 @@ uint8_t prevHue = 0;
 uint16_t maxDots = NUM_LEDS / 2;
 int16_t dots[NUM_LEDS / 2];
 
-// todo make threshold configurable
-uint8_t threshold = 3;
 
 CRGBArray <NUM_LEDS> leds;
 int hue = 0;
 int pix = 0;
+
+MD_REncoder functionRotary = MD_REncoder(FUNCTION_ROTARY_INPUT_A, FUNCTION_ROTARY_INPUT_B);
+int8_t functionIndex = FUNCTION_ROTARY_START;
+
+MD_REncoder thresholdRotary = MD_REncoder(THRESHOLD_ROTARY_INPUT_A, THRESHOLD_ROTARY_INPUT_B);
+uint8_t threshold = THRESHOLD_ROTARY_START;
 
 void onData(int numBytes) {
   int i = 0;
@@ -56,24 +60,17 @@ void onData(int numBytes) {
   }
 }
 
-int arrayAverage(int8_t ray[], uint8_t startIndex, uint8_t endIndex) {
-  float sum = 0;
-  for (int i = startIndex; i < endIndex; i++) {
-    sum += ray[i];
-  }
-  return sum / (endIndex - startIndex);
-}
-
 void KickFlash() {
-  fadeToBlackBy( leds, NUM_LEDS, 64);
+  fadeToBlackBy(leds, NUM_LEDS, 32);
   if (input[0] > threshold) {
-    fill_rainbow(leds, NUM_LEDS, 0, 255 / NUM_LEDS);
+    fill_rainbow(leds, NUM_LEDS, 0xE0, (255 / NUM_LEDS) + 1);
   }
 }
 
 uint16_t dotIndex = 0;
+uint8_t modThreshold = 8;
 void KickAndRun() {
-  fadeToBlackBy( leds, NUM_LEDS, rotaryCount ? 255 : 128);
+  fadeToBlackBy( leds, NUM_LEDS, functionIndex ? 255 : 128);
 
   uint16_t i;
   //increment active dots
@@ -82,20 +79,22 @@ void KickAndRun() {
     if (dots[i] > maxDots) dots[i] = -1;
   }
 
+  //create new dot if necessary
   if (input[0] > threshold) {
     dots[dotIndex] = 0;
     dotIndex = (dotIndex + 1) % maxDots;
   }
 
+  //fill all existing dots
   CRGB color;
   uint16_t ledIndex;
   for (i = 0; i < maxDots; i++) {
     if (dots[i] >= 0) {
       ledIndex = dots[i];
-      fill_rainbow(&color, 1, map(ledIndex, 0, maxDots, 255, 0), DELTA_HUE);
+      fill_rainbow(&color, 1, map(i % modThreshold, 0, modThreshold, 0, 255), DELTA_HUE);
 
-      leds[getIndex(maxDots, NUM_LEDS, -ledIndex)] = color;
-      leds[getIndex(maxDots, NUM_LEDS, +ledIndex)] = color;
+      leds[getIndex(maxDots, NUM_LEDS, -ledIndex)] |= color;
+      leds[getIndex(maxDots, NUM_LEDS, +ledIndex)] |= color;
     }
   }
 }
@@ -108,6 +107,7 @@ int getIndex(int current, int maximum, int add) {
   return ret;
 }
 
+//todo consider thresholding logic to speed up the dots
 uint8_t Spaceship_i = 0;
 uint16_t prevPos = sin8(0);
 void Spaceship() {
@@ -133,6 +133,7 @@ void Spaceship() {
   }
 }
 
+//todo copy glitter's threshold logic
 void glitter() {
   fadeToBlackBy( leds, NUM_LEDS, 3);
   if ( random8() < 20) {
@@ -140,6 +141,8 @@ void glitter() {
   }
 }
 
+//todo also needs previous position taken into account like sinelon
+//todo have threshold controll speed like sinelon
 void juggle() {
   // eight colored dots, weaving in and out of sync with each other
   fadeToBlackBy( leds, NUM_LEDS, 20);
@@ -150,27 +153,43 @@ void juggle() {
   }
 }
 
+uint16_t prevSinPos = 0;
 void sinelon() {
   // a colored dot sweeping back and forth, with fading trails
-  fadeToBlackBy( leds, NUM_LEDS, 10);
-  int pos = beatsin16(13, 0, NUM_LEDS);
-  fill_rainbow(&(leds[pos]), 1, prevHue, DELTA_HUE);
-  prevHue += 2;
+  fadeToBlackBy( leds, NUM_LEDS, threshold * 8 + 4);
+  uint16_t pos = beatsin16(threshold * 6 + 6, 0, NUM_LEDS);
+  
+  // positive means increasing, negative means decreasing
+  int16_t diff = pos - prevSinPos;
+  if (diff == 0) return;
+
+  if (diff > 0) {
+      fill_rainbow(&(leds[prevSinPos]), diff, prevHue, 2);
+      prevHue += 2 * diff;
+  } else {
+      diff = -diff;
+      fill_rainbow(&(leds[pos]), diff, prevHue + 2 * diff, -2);
+      prevHue += 2 * diff;
+  }
+
+  prevSinPos = pos;
 }
 
 void confetti() {
   // random colored speckles that blink in and fade smoothly
-  fadeToBlackBy( leds, NUM_LEDS, 1);
+    fadeToBlackBy(leds, NUM_LEDS, THRESHOLD_MAX + 1 - threshold);//(THRESHOLD_MAX * 2) + 1 - (threshold * 2));
+
+  uint8_t timeThreshold = threshold * 10 + 10;
   uint64_t currentMs = millis();
-  if (currentMs - startMs >= 25) {
+  if (currentMs - startMs >= timeThreshold) {
     int pos = random16(NUM_LEDS);
     leds[pos] += CHSV(random8(255), 200, 255);
     startMs = currentMs;
   }
 }
 
-int Wheel_i = 0;
-bool Wheel_high = false;
+//todo consider changing the color to do the rainbow in segments rather than full rainbow in each segment
+uint8_t Wheel_i = 0;
 void WheelAuto() {
   //todo perhaps add beat detection if possible?
   bool thresholdMet = input[0] >= threshold;
@@ -185,26 +204,20 @@ void WheelAuto() {
   }
 
   uint64_t currentMs = millis();
-  if (thresholdMet && !Wheel_high && currentMs - startMs >= 50) {
-    Wheel_high = true;
-
+  if (thresholdMet) {
     Wheel_i = (Wheel_i + 1) % NUM_SPOKES;
     fill_rainbow(&(leds[Wheel_i * SPOKE_LENGTH]), SPOKE_LENGTH, 0, 255 / SPOKE_LENGTH);
     startMs = currentMs;
-  }
-
-  if (!thresholdMet && Wheel_high) {
-    Wheel_high = false;
   }
 }
 
 uint16_t state = 0;
 void WheelManual() {
-  //todo configure speed with potentiometer, add
-  fadeToBlackBy(leds, NUM_LEDS, 5);
+  fadeToBlackBy(leds, NUM_LEDS, (THRESHOLD_MAX * 2) + 1 - (threshold * 2));
 
+  uint8_t timeThreshold = threshold * 5 + 5;
   uint64_t currentMs = millis();
-  if (currentMs - startMs >= 20) {
+  if (currentMs - startMs >= timeThreshold) {
     fill_rainbow(&(leds[state]), 1, prevHue, DELTA_HUE);
     state = (state + 1) % NUM_LEDS;
     startMs = currentMs;
@@ -213,7 +226,7 @@ void WheelManual() {
 }
 
 void EQ() {
-  fadeToBlackBy( leds, NUM_LEDS, 32);
+  fadeToBlackBy( leds, NUM_LEDS, 0x28);
   for (size_t x = 0; x < 8; x++) {
     fill_rainbow(&(leds[x * SPOKE_LENGTH]), map(input[x], 0, 10, 0, SPOKE_LENGTH), 0, DELTA_HUE);
   }
@@ -221,41 +234,33 @@ void EQ() {
 
 typedef void (*LedFunctionArray[])(void);
 LedFunctionArray gPatterns = { KickAndRun, KickAndRun, KickFlash, Spaceship, glitter, juggle, sinelon, confetti, WheelManual, WheelAuto, EQ };
-bool patternRawStatus[] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0 };
-size_t gPatternsSize = sizeof(gPatterns) / sizeof(gPatterns[0]);
+bool patternRawStatus[] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
+uint8_t gPatternsSize = sizeof(gPatterns) / sizeof(gPatterns[0]);
 
-int16_t prevRotary = rotaryCount;
-
+uint8_t prevFunctionIndex = FUNCTION_ROTARY_START;
 void updateLeds() {
-  if (prevRotary != rotaryCount) {
+  if (prevFunctionIndex != functionIndex) {
     FastLED.clear();
     memset(dots, -1, sizeof(dots));
   }
-  prevRotary = rotaryCount;
-  gPatterns[rotaryCount / 2]();
+  prevFunctionIndex = functionIndex;
+  gPatterns[functionIndex]();
   FastLED.show();
 }
 
-/* update rotary encoder */
-void rotaryStateUpdate(void) {
-  //todo encoder moves two spaces at a time, perhaps timebox state changes
-  aState = digitalRead(OUTPUT_A); // Reads the "current" state of the outputA
-
-  // If the previous and the current state of the outputA are different, that means a Pulse has occured
-  if (aState != aLastState) {
-    int bState = digitalRead(OUTPUT_B);
-
-    // If the outputB state is different to the outputA state, that means the encoder is rotating clockwise
-    if (bState != aState) {
-      rotaryCount++;
-      if (rotaryCount >= gPatternsSize * 2) rotaryCount = 0;
-    } else {
-      rotaryCount--;
-      if (rotaryCount < 0) rotaryCount = gPatternsSize * 2 - 1;
-    }
-
+uint8_t updateRotaryState(MD_REncoder* rotary, int8_t rotaryCount, uint8_t upperBound) {
+  uint8_t rotaryState = rotary->read();
+  if (rotaryState) {
+    rotaryState != DIR_CW ? rotaryCount++ : rotaryCount--;
+    if (rotaryCount < 0) rotaryCount = upperBound - 1;
+    rotaryCount = rotaryCount % upperBound;
   }
-  aLastState = aState; // Updates the previous state of the outputA with the current state
+  return rotaryCount;
+}
+
+void updateRotaries() {
+    functionIndex = updateRotaryState(&functionRotary, functionIndex, gPatternsSize);
+    threshold = updateRotaryState(&thresholdRotary, threshold, THRESHOLD_MAX);
 }
 
 void printArray(byte ray[], size_t len) {
@@ -275,7 +280,8 @@ void advanceState() {
   updateLeds();
 
   printArray(input, 8);
-  log_printf("Rotary: %2u. ", rotaryCount);
+  log_printf("threshold: %2u. ", threshold);
+  log_printf("functionIndex: %2u. ", functionIndex);
   log_printf("Tick: %3u. ", tickPr);
   log_println();
 }
@@ -288,22 +294,20 @@ bool updateTick() {
 }
 
 
-void onReq(int numBytes) {
-  Wire.write(patternRawStatus[rotaryCount / 2]);
+void onReq() {
+  Wire.write(patternRawStatus[functionIndex]);
 }
 
 void setup() {
   Serial.begin(115200);
-  delay(250);
+  delay(500);
 
   FastLED.addLeds <WS2812B, DATA_PIN, GRB> (leds, NUM_LEDS);
+  FastLED.setBrightness(BRIGHTNESS);
 
-  // Setup input pins
-  pinMode(OUTPUT_A, INPUT);
-  pinMode(OUTPUT_B, INPUT);
-
-  // Reads the initial state of rotary
-  aLastState = digitalRead(OUTPUT_A);
+  // rotary encoder starts
+  functionRotary.begin();
+  thresholdRotary.begin();
 
   // start clock
   startMs = millis();
@@ -319,7 +323,7 @@ void setup() {
 
 /* Main loop code */
 void loop() {
-  rotaryStateUpdate();
+  updateRotaries();
   updateTick();
   advanceState();
 }

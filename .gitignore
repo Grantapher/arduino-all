@@ -1,0 +1,4 @@
+*.vcxproj*
+*/Debug/
+*/__vm/
+.vs/

@@ -99,10 +99,6 @@ uint8_t MD_REncoder::read(void)
   uint8_t pinstate = (digitalRead(_pinB) << 1) | digitalRead(_pinA);
   
   _state = ttable[_state & 0xf][pinstate]; 
-  Serial.print(pinstate);
-  Serial.print(". ");
-  Serial.print(_state);
-  Serial.print(". ");
   
 #if ENABLE_SPEED
   // handle the encoder velocity calc
