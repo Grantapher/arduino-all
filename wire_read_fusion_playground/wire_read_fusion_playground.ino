@@ -40,10 +40,19 @@ unsigned long startMsPr;
 uint8_t prevHue = 0;
 
 uint16_t maxDots = NUM_LEDS / 2;
+
+/*
+    Bit representation
+    xxxx xxxx xxxx xxxx
+
+    0 - sign
+    1-4 - intensity (unsigned)
+    5-F - position (uses the sign at 0)
+*/
 int16_t dots[NUM_LEDS / 2];
 
 // todo make threshold configurable
-uint8_t threshold = 3;
+int8_t threshold = 3;
 
 CRGBArray <NUM_LEDS> leds;
 int hue = 0;
@@ -73,29 +82,39 @@ void KickFlash() {
 
 uint16_t dotIndex = 0;
 void KickAndRun() {
-  fadeToBlackBy( leds, NUM_LEDS, rotaryCount ? 255 : 128);
+  fadeToBlackBy( leds, NUM_LEDS, !rotaryCount ? 255 : 128);
 
   uint16_t i;
   //increment active dots
   for (i = 0; i < maxDots; i++) {
     if (dots[i] >= 0) dots[i]++;
-    if (dots[i] > maxDots) dots[i] = -1;
+    if ((dots[i] & 0x07FF) > maxDots)
+      dots[i] = -1;
   }
 
   if (input[0] > threshold) {
     dots[dotIndex] = 0;
+    uint16_t upperBits = input[0];
+    upperBits <<= 11;
+    dots[dotIndex] |= upperBits;
+    uint16_t bitRep = dots[dotIndex];
+    uint16_t ledIndex = bitRep & 0x07FF; // erase non-index bits
+    uint8_t intensity = (bitRep & 0x7800) >> 11; // get intensity bits
     dotIndex = (dotIndex + 1) % maxDots;
   }
 
-  CRGB color;
-  uint16_t ledIndex;
   for (i = 0; i < maxDots; i++) {
     if (dots[i] >= 0) {
-      ledIndex = dots[i];
-      fill_rainbow(&color, 1, map(ledIndex, 0, maxDots, 255, 0), DELTA_HUE);
+      uint16_t bitRep = dots[i];
+      uint16_t ledIndex = bitRep & 0x07FF; // erase non-index bits
+      uint8_t intensity = (bitRep & 0x7800) >> 11; // get intensity bits
 
-      leds[getIndex(maxDots, NUM_LEDS, -ledIndex)] = color;
-      leds[getIndex(maxDots, NUM_LEDS, +ledIndex)] = color;
+
+      CRGB color;
+      fill_rainbow(&color, 1, map(intensity, threshold, 10, 255, 0), DELTA_HUE);
+
+      leds[getIndex(maxDots, NUM_LEDS, -ledIndex)] |= color;
+      leds[getIndex(maxDots, NUM_LEDS, +ledIndex)] |= color;
     }
   }
 }
@@ -160,9 +179,9 @@ void sinelon() {
 
 void confetti() {
   // random colored speckles that blink in and fade smoothly
-  fadeToBlackBy( leds, NUM_LEDS, 1);
+  fadeToBlackBy( leds, NUM_LEDS, 4);
   uint64_t currentMs = millis();
-  if (currentMs - startMs >= 25) {
+  if (currentMs - startMs >= 100) {
     int pos = random16(NUM_LEDS);
     leds[pos] += CHSV(random8(255), 200, 255);
     startMs = currentMs;
