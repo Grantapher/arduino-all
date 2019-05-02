@@ -5,14 +5,13 @@
 #define LOG Serial
 // Include must be placed after LOG definition to work
 #include "log.h"
-#include "wire_read_fusion_playground.h"
 
-#define NUM_LEDS 150
+#define NUM_LEDS 250
 #define DATA_PIN 2
 
 #define FUNCTION_ROTARY_INPUT_A 7
 #define FUNCTION_ROTARY_INPUT_B 8
-#define FUNCTION_ROTARY_START 6
+#define FUNCTION_ROTARY_START 0
 
 #define THRESHOLD_ROTARY_INPUT_A 9
 #define THRESHOLD_ROTARY_INPUT_B 10
@@ -107,10 +106,10 @@ int getIndex(int current, int maximum, int add) {
   return ret;
 }
 
-//todo consider thresholding logic to speed up the dots
 uint8_t Spaceship_i = 0;
 uint16_t prevPos = sin8(0);
 void Spaceship() {
+  //todo consider thresholding logic to speed up the dots
   fadeToBlackBy( leds, NUM_LEDS, 24);
 
   uint64_t currentMs = millis();
@@ -133,18 +132,17 @@ void Spaceship() {
   }
 }
 
-//todo copy glitter's threshold logic
 void glitter() {
+  //todo copy glitter's threshold logic
   fadeToBlackBy( leds, NUM_LEDS, 3);
   if ( random8() < 20) {
     leds[ random16(NUM_LEDS) ] += CRGB::White;
   }
 }
 
-//todo also needs previous position taken into account like sinelon
-//todo have threshold controll speed like sinelon
 void juggle() {
-  // eight colored dots, weaving in and out of sync with each other
+  //todo also needs previous position taken into account like sinelon
+  //todo have threshold controll speed like sinelon  // eight colored dots, weaving in and out of sync with each other
   fadeToBlackBy( leds, NUM_LEDS, 20);
   byte dothue = 0;
   for ( int i = 0; i < 8; i++) {
@@ -158,26 +156,27 @@ void sinelon() {
   // a colored dot sweeping back and forth, with fading trails
   fadeToBlackBy( leds, NUM_LEDS, threshold * 8 + 4);
   uint16_t pos = beatsin16(threshold * 6 + 6, 0, NUM_LEDS);
-  
+
   // positive means increasing, negative means decreasing
   int16_t diff = pos - prevSinPos;
   if (diff == 0) return;
 
   if (diff > 0) {
-      fill_rainbow(&(leds[prevSinPos]), diff, prevHue, 2);
-      prevHue += 2 * diff;
+    fill_rainbow(&(leds[prevSinPos]), diff, prevHue, 2);
+    prevHue += 2 * diff;
   } else {
-      diff = -diff;
-      fill_rainbow(&(leds[pos]), diff, prevHue + 2 * diff, -2);
-      prevHue += 2 * diff;
+    diff = -diff;
+    fill_rainbow(&(leds[pos]), diff, prevHue + 2 * diff, -2);
+    prevHue += 2 * diff;
   }
 
   prevSinPos = pos;
 }
 
+
 void confetti() {
   // random colored speckles that blink in and fade smoothly
-    fadeToBlackBy(leds, NUM_LEDS, THRESHOLD_MAX + 1 - threshold);//(THRESHOLD_MAX * 2) + 1 - (threshold * 2));
+  fadeToBlackBy(leds, NUM_LEDS, THRESHOLD_MAX + 1 - threshold);
 
   uint8_t timeThreshold = threshold * 10 + 10;
   uint64_t currentMs = millis();
@@ -188,9 +187,9 @@ void confetti() {
   }
 }
 
-//todo consider changing the color to do the rainbow in segments rather than full rainbow in each segment
 uint8_t Wheel_i = 0;
 void WheelAuto() {
+  //todo consider changing the color to do the rainbow in segments rather than full rainbow in each segment
   //todo perhaps add beat detection if possible?
   bool thresholdMet = input[0] >= threshold;
 
@@ -326,4 +325,5 @@ void loop() {
   updateRotaries();
   updateTick();
   advanceState();
+  //todo add a way to ignore state updates and check the values of the encoders (using their buttons?)
 }
