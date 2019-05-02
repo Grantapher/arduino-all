@@ -9,10 +9,12 @@
 #define NUM_LEDS 250
 #define DATA_PIN 2
 
-#define FUNCTION_ROTARY_INPUT_A 7
-#define FUNCTION_ROTARY_INPUT_B 8
+#define FUNCTION_ROTARY_INPUT_BTN 5
+#define FUNCTION_ROTARY_INPUT_A 6
+#define FUNCTION_ROTARY_INPUT_B 7
 #define FUNCTION_ROTARY_START 0
 
+#define THRESHOLD_ROTARY_INPUT_BTN 8
 #define THRESHOLD_ROTARY_INPUT_A 9
 #define THRESHOLD_ROTARY_INPUT_B 10
 #define THRESHOLD_ROTARY_START 2
@@ -26,15 +28,15 @@
 
 #define BRIGHTNESS 0x80
 
-int SPOKE_LENGTH = NUM_LEDS / NUM_SPOKES;
+uint8_t SPOKE_LENGTH = NUM_LEDS / NUM_SPOKES;
 
 // I2C input data
-byte input[8];
+int8_t input[8];
 
-unsigned int tickPr = 0;
+uint16_t tickPr = 0;
 
-unsigned long startMs;
-unsigned long startMsPr;
+uint64_t startMs;
+uint64_t startMsPr;
 
 uint8_t prevHue = 0;
 
@@ -43,8 +45,6 @@ int16_t dots[NUM_LEDS / 2];
 
 
 CRGBArray <NUM_LEDS> leds;
-int hue = 0;
-int pix = 0;
 
 MD_REncoder functionRotary = MD_REncoder(FUNCTION_ROTARY_INPUT_A, FUNCTION_ROTARY_INPUT_B);
 int8_t functionIndex = FUNCTION_ROTARY_START;
@@ -262,7 +262,7 @@ void updateRotaries() {
     threshold = updateRotaryState(&thresholdRotary, threshold, THRESHOLD_MAX);
 }
 
-void printArray(byte ray[], size_t len) {
+void printArray(int8_t ray[], size_t len) {
   log_print("[ ");
   int i;
   for (i = 0; i < len; i++) {
@@ -274,24 +274,12 @@ void printArray(byte ray[], size_t len) {
   log_print(" ]. ");
 }
 
-/* Handle going from one state to the next. */
-void advanceState() {
-  updateLeds();
-
-  printArray(input, 8);
-  log_printf("threshold: %2u. ", threshold);
-  log_printf("functionIndex: %2u. ", functionIndex);
-  log_printf("Tick: %3u. ", tickPr);
-  log_println();
-}
-
 /* Check if a new tick has passed. */
 bool updateTick() {
   unsigned long currentMs = millis();
   tickPr = currentMs - startMsPr;
   startMsPr = currentMs;
 }
-
 
 void onReq() {
   Wire.write(patternRawStatus[functionIndex]);
@@ -307,6 +295,10 @@ void setup() {
   // rotary encoder starts
   functionRotary.begin();
   thresholdRotary.begin();
+
+  // buttons input setup
+  pinMode(FUNCTION_ROTARY_INPUT_BTN, INPUT);
+  pinMode(THRESHOLD_ROTARY_INPUT_BTN, INPUT);
 
   // start clock
   startMs = millis();
@@ -324,6 +316,21 @@ void setup() {
 void loop() {
   updateRotaries();
   updateTick();
-  advanceState();
-  //todo add a way to ignore state updates and check the values of the encoders (using their buttons?)
+  if (digitalRead(FUNCTION_ROTARY_INPUT_BTN) == LOW) {
+      FastLED.clear();
+      fill_rainbow(leds, functionIndex + 1, 0, 255 / gPatternsSize);
+      FastLED.show();
+  } else if (digitalRead(THRESHOLD_ROTARY_INPUT_BTN) == LOW) {
+      FastLED.clear();
+      fill_rainbow(leds, threshold + 1, 0, 255 / THRESHOLD_MAX);
+      FastLED.show();
+  } else {
+      updateLeds();
+
+      printArray(input, 8);
+      log_printf("threshold: %2u. ", threshold);
+      log_printf("functionIndex: %2u. ", functionIndex);
+      log_printf("Tick: %3u. ", tickPr);
+      log_println();
+  }
 }

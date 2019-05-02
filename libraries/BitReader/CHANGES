@@ -1,0 +1,23 @@
+Changes for 1.3.0:
+
+* Fixed issue #2 - Create INSTALL.md file.
+* Fixed issue #4 - Update repository structure to Arduino Library Format 1.5.
+* Fixed issue #5 - Upgrade to win32Arduino version 2.3.0-rc.1 for executing unit tests.
+
+Changes for 1.2.1:
+
+* Fixed issue #1 - Update all examples: Z is character 25, not 26
+* Fixed issue #3 - Use correct field separator in keywords.txt
+
+Changes for 1.2.0:
+
+* Source code now depends on win32Arduino third party library available at http://github.com/end2endzone/win32Arduino
+* First github release.
+* Code originally release at http://www.end2endzone.com/bitreader-a-collection-of-software-timers-to-easily-compute-elapsed-time-since-an-event-occured/
+
+Changes for 1.1.0:
+
+* Optimized bit operations
+
+Changes for 1.0.0:
+* Initial release.
