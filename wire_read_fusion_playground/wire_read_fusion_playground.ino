@@ -6,7 +6,7 @@
 // Include must be placed after LOG definition to work
 #include "log.h"
 
-#define NUM_LEDS 250
+#define NUM_LEDS 300
 #define DATA_PIN 2
 
 #define FUNCTION_ROTARY_INPUT_BTN 5
@@ -26,7 +26,10 @@
 #define DELTA_HUE 32
 #define NUM_SPOKES 8
 
-#define BRIGHTNESS 0x80
+#define BRIGHTNESS 0x60
+
+#define BIT_BUFFER_SIZE ((NUM_LEDS / 16) + 1)
+#define MOD_THRESHOLD 8
 
 uint8_t SPOKE_LENGTH = NUM_LEDS / NUM_SPOKES;
 
@@ -40,9 +43,7 @@ uint64_t startMsPr;
 
 uint8_t prevHue = 0;
 
-uint16_t maxDots = NUM_LEDS / 2;
-int16_t dots[NUM_LEDS / 2];
-
+uint8_t dotsBitBuffer[BIT_BUFFER_SIZE];
 
 CRGBArray <NUM_LEDS> leds;
 
@@ -66,34 +67,37 @@ void KickFlash() {
   }
 }
 
-uint16_t dotIndex = 0;
-uint8_t modThreshold = 8;
+uint8_t colorIndex = 0;
 void KickAndRun() {
   fadeToBlackBy( leds, NUM_LEDS, functionIndex ? 255 : 128);
 
   uint16_t i;
-  //increment active dots
-  for (i = 0; i < maxDots; i++) {
-    if (dots[i] >= 0) dots[i]++;
-    if (dots[i] > maxDots) dots[i] = -1;
+
+  //increment active dots by rotating them all over
+  uint8_t carry = 0;
+  for (i = 0; i < BIT_BUFFER_SIZE; i++) {
+    uint8_t nextCarry = dotsBitBuffer[i] & 0x01;
+    dotsBitBuffer[i] >>= 1;
+    if (carry) dotsBitBuffer[i] |= 0x80;
+    carry = nextCarry;
   }
 
-  //create new dot if necessary
+  //create new dot if necessary, increment starting color
   if (input[0] > threshold) {
-    dots[dotIndex] = 0;
-    dotIndex = (dotIndex + 1) % maxDots;
+      dotsBitBuffer[0] |= 0x80;
+      colorIndex = (colorIndex + 1) % MOD_THRESHOLD;
   }
 
   //fill all existing dots
   CRGB color;
-  uint16_t ledIndex;
+  uint16_t colorsSeen = 0;
+  uint16_t maxDots = NUM_LEDS / 2;
   for (i = 0; i < maxDots; i++) {
-    if (dots[i] >= 0) {
-      ledIndex = dots[i];
-      fill_rainbow(&color, 1, map(i % modThreshold, 0, modThreshold, 0, 255), DELTA_HUE);
-
-      leds[getIndex(maxDots, NUM_LEDS, -ledIndex)] |= color;
-      leds[getIndex(maxDots, NUM_LEDS, +ledIndex)] |= color;
+    if (dotsBitBuffer[i / 8] & (0x80 >> i % 8)) {
+      fill_rainbow(&color, 1, map((colorIndex + colorsSeen) % MOD_THRESHOLD, 0, MOD_THRESHOLD, 0, 255), DELTA_HUE);
+      colorsSeen = (colorsSeen + MOD_THRESHOLD - 1) % MOD_THRESHOLD;
+      leds[getIndex(maxDots, NUM_LEDS, -i)] |= color;
+      leds[getIndex(maxDots, NUM_LEDS, +i)] |= color;
     }
   }
 }
@@ -240,7 +244,7 @@ uint8_t prevFunctionIndex = FUNCTION_ROTARY_START;
 void updateLeds() {
   if (prevFunctionIndex != functionIndex) {
     FastLED.clear();
-    memset(dots, -1, sizeof(dots));
+    memset(dotsBitBuffer, 0, sizeof(dotsBitBuffer));
   }
   prevFunctionIndex = functionIndex;
   gPatterns[functionIndex]();
@@ -308,8 +312,8 @@ void setup() {
   Wire.onReceive(onData);
   Wire.onRequest(onReq);
 
-  // fill state array with -1s
-  memset(dots, -1, sizeof(dots));
+  // start dotBitBuffer with zeroes
+  memset(dotsBitBuffer, 0, sizeof(dotsBitBuffer));
 }
 
 /* Main loop code */
@@ -320,10 +324,12 @@ void loop() {
       FastLED.clear();
       fill_rainbow(leds, functionIndex + 1, 0, 255 / gPatternsSize);
       FastLED.show();
+      FastLED.clear();
   } else if (digitalRead(THRESHOLD_ROTARY_INPUT_BTN) == LOW) {
       FastLED.clear();
       fill_rainbow(leds, threshold + 1, 0, 255 / THRESHOLD_MAX);
       FastLED.show();
+      FastLED.clear();
   } else {
       updateLeds();
 
