@@ -118,14 +118,13 @@ void Spaceship() {
     int16_t diff = pos - prevPos;
     for (int16_t spoke = -1; spoke < NUM_SPOKES; spoke++) {
         if (diff == 0) diff = 1;
-        
+
         int16_t index;
         if (diff >= 0) {
             index = prevPos + spoke * SPOKE_LENGTH;
             if (index != constrain(index, 0, NUM_LEDS - 1)) continue;
             fill_rainbow(&(leds[index]), diff, prevHue, DELTA_HUE);
-        }
-        else {
+        } else {
             index = pos + spoke * SPOKE_LENGTH;
             if (index != constrain(index, 0, NUM_LEDS - 1)) continue;
             fill_rainbow(&(leds[index]), -diff, prevHue + -diff * DELTA_HUE, DELTA_HUE);
@@ -148,8 +147,7 @@ void glitter() {
     if (currentMs - startMs >= timeThreshold) {
         if (functionIndex % 2) {
             leds[random16(NUM_LEDS)] += CRGB::White;
-        }
-        else {
+        } else {
             leds[random16(NUM_LEDS)] += CHSV(random8(255), 200, 255);
         }
         startMs = currentMs;
@@ -176,8 +174,7 @@ void juggle() {
             for (j = 0; j < diff; j++) {
                 leds[prevJugglePos[i] + j] |= color;
             }
-        }
-        else if (diff <= 0) {
+        } else if (diff <= 0) {
             for (j = 0; j < -diff; j++) {
                 leds[pos + j] |= color;
             }
@@ -201,8 +198,7 @@ void sinelon() {
     if (diff > 0) {
         fill_rainbow(&(leds[prevSinPos]), diff, prevHue, 2);
         prevHue += 2 * diff;
-    }
-    else {
+    } else {
         diff = -diff;
         fill_rainbow(&(leds[pos]), diff, prevHue + 2 * diff, -2);
         prevHue += 2 * diff;
@@ -221,8 +217,7 @@ void WheelAuto() {
             CRGB color;
             fill_rainbow(&color, 1, map(Wheel_i, 0, NUM_SPOKES, 0, 255), 0);
             fill_solid(&(leds[Wheel_i * SPOKE_LENGTH]), SPOKE_LENGTH, color);
-        }
-        else {
+        } else {
             fill_rainbow(&(leds[Wheel_i * SPOKE_LENGTH]), SPOKE_LENGTH, 0, 255 / SPOKE_LENGTH);
         }
     }
@@ -341,14 +336,12 @@ void loop() {
         fill_rainbow(leds, (functionIndex + 1) * NUM_LEDS / gPatternsSize, 0, 255 / gPatternsSize);
         FastLED.show();
         FastLED.clear();
-    }
-    else if (digitalRead(THRESHOLD_ROTARY_INPUT_BTN) == LOW) {
+    } else if (digitalRead(THRESHOLD_ROTARY_INPUT_BTN) == LOW) {
         FastLED.clear();
         fill_rainbow(leds, (threshold + 1) * NUM_LEDS / THRESHOLD_MAX, 0, 255 / THRESHOLD_MAX);
         FastLED.show();
         FastLED.clear();
-    }
-    else {
+    } else {
         updateLeds();
 
         printArray(input, 8);

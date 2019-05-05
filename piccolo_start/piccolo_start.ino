@@ -226,8 +226,7 @@ void loop() {
 
         if (raw) {
             level = col[x][colCount];
-        }
-        else {
+        } else {
             minLvl = maxLvl = col[x][0];
             for (i = 1; i < 10; i++) { // Get range of prior 10 frames
                 if (col[x][i] < minLvl)      minLvl = col[x][i];
@@ -257,8 +256,7 @@ void loop() {
 
     if (peak[1] > 8) {
         digitalWrite(13, HIGH);
-    }
-    else {
+    } else {
         digitalWrite(13, LOW);
     }
 
@@ -272,8 +270,7 @@ void loop() {
 
     if (raw) {
         memset(peak, 0, sizeof(peak));
-    }
-    else {
+    } else {
         // Every third frame, make the peak pixels drop by 1:
         if (++dotCount >= 3) {
             dotCount = 0;
