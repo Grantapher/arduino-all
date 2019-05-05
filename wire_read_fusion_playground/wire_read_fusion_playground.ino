@@ -12,12 +12,12 @@
 #define FUNCTION_ROTARY_INPUT_BTN 5
 #define FUNCTION_ROTARY_INPUT_A 6
 #define FUNCTION_ROTARY_INPUT_B 7
-#define FUNCTION_ROTARY_START 3
+#define FUNCTION_ROTARY_START 10
 
 #define THRESHOLD_ROTARY_INPUT_BTN 8
 #define THRESHOLD_ROTARY_INPUT_A 9
 #define THRESHOLD_ROTARY_INPUT_B 10
-#define THRESHOLD_ROTARY_START 0
+#define THRESHOLD_ROTARY_START 6
 #define THRESHOLD_MAX 10
 
 #define TICK_MIN 5
@@ -110,38 +110,37 @@ int getIndex(int current, int maximum, int add) {
   return ret;
 }
 
-uint8_t Spaceship_i = 0;
-uint16_t prevPos = beatsin16(0);
+uint16_t prevPos = beatsin16(0, 0, SPOKE_LENGTH * 2);
 void Spaceship() {
-  //todo consider thresholding logic to speed up the dots
-  //todo add the logic from sinelon
+    fadeToBlackBy(leds, NUM_LEDS, map(threshold, 0, THRESHOLD_MAX, 16, 80));
 
-    fadeToBlackBy(leds, NUM_LEDS, threshold * 8 + 4);
-
-    CRGB color;
-    fill_rainbow(&color, 1, prevHue, DELTA_HUE);
-
-    uint16_t pos = beatsin16(Spaceship_i++, 0, SPOKE_LENGTH * 2);
-
+    uint16_t pos = beatsin16(map(threshold, 0, THRESHOLD_MAX, 8, 50), 0, SPOKE_LENGTH * 2);
+    int16_t diff = pos - prevPos;
     for (uint8_t spoke = 0; spoke < NUM_SPOKES; spoke++) {
-      leds[(spoke * SPOKE_LENGTH + pos) % NUM_LEDS] = color;
+        if (diff >= 0) {
+            fill_rainbow(&(leds[prevPos + spoke * SPOKE_LENGTH]), diff, prevHue, DELTA_HUE);
+        } else {
+            fill_rainbow(&(leds[pos + spoke * SPOKE_LENGTH]), -diff, prevHue + -diff * DELTA_HUE, DELTA_HUE);
+        }
     }
 
-    if (prevPos != pos) {
-      prevPos = pos;
-      prevHue += DELTA_HUE;
-    }
+    prevPos = pos;
+    prevHue += (diff < 0 ? -diff : diff) * DELTA_HUE; // depends on uint8_t overflows
 
 }
 
 void glitter() {
   // random colored speckles that blink in and fade smoothly
-  fadeToBlackBy(leds, NUM_LEDS, THRESHOLD_MAX + 1 - threshold);
+  fadeToBlackBy(leds, NUM_LEDS, map(threshold, 0, THRESHOLD_MAX, 1, 10));
 
-  uint8_t timeThreshold = threshold * 10 + 10;
+  uint8_t timeThreshold = map(threshold, 0, THRESHOLD_MAX, 200, 8);
   uint64_t currentMs = millis();
   if (currentMs - startMs >= timeThreshold) {
-    leds[random16(NUM_LEDS)] += CRGB::White;
+      if (functionIndex % 2) {
+          leds[random16(NUM_LEDS)] += CRGB::White;
+      } else {
+          leds[random16(NUM_LEDS)] += CHSV(random8(255), 200, 255);
+      }
     startMs = currentMs;
   }
 }
@@ -149,15 +148,17 @@ void glitter() {
 uint16_t prevJugglePos[8] = { 0,0,0,0,0,0,0,0 };
 void juggle() {
   // eight colored dots, weaving in and out of sync with each other
-  fadeToBlackBy(leds, NUM_LEDS, threshold * 8 + 64);
+  fadeToBlackBy(leds, NUM_LEDS, map(threshold, 0, THRESHOLD_MAX, 64, 168));
 
   byte dothue = 0;
+  uint8_t speed = map(threshold, 0, THRESHOLD_MAX, 3, 8);
+  uint8_t dotSpeedDiff = map(threshold, 0, THRESHOLD_MAX, 1, 5);
   for (int i = 0; i < 8; i++) {
     //get color for dot
     CHSV color = CHSV(dothue, 200, 255);
     dothue += 32;
 
-    uint16_t pos = beatsin16((threshold + 6) / 2 + i * (threshold + 2 / 2), 0, NUM_LEDS);
+    uint16_t pos = beatsin16(speed + i * dotSpeedDiff, 0, NUM_LEDS);
     int16_t diff = pos - prevJugglePos[i];
     int j;
     if(diff > 0) {
@@ -179,8 +180,8 @@ void juggle() {
 uint16_t prevSinPos = 0;
 void sinelon() {
   // a colored dot sweeping back and forth, with fading trails
-  fadeToBlackBy( leds, NUM_LEDS, threshold * 8 + 4);
-  uint16_t pos = beatsin16(threshold * 6 + 6, 0, NUM_LEDS);
+  fadeToBlackBy( leds, NUM_LEDS, map(threshold, 0, THRESHOLD_MAX, 4, 84));
+  uint16_t pos = beatsin16(map(threshold, 0, THRESHOLD_MAX, 6, 66), 0, NUM_LEDS);
 
   // positive means increasing, negative means decreasing
   int16_t diff = pos - prevSinPos;
@@ -196,19 +197,6 @@ void sinelon() {
   }
 
   prevSinPos = pos;
-}
-
-void confetti() {
-  // random colored speckles that blink in and fade smoothly
-  fadeToBlackBy(leds, NUM_LEDS, THRESHOLD_MAX + 1 - threshold);
-
-  uint8_t timeThreshold = threshold * 10 + 10;
-  uint64_t currentMs = millis();
-  if (currentMs - startMs >= timeThreshold) {
-    int pos = random16(NUM_LEDS);
-    leds[pos] += CHSV(random8(255), 200, 255);
-    startMs = currentMs;
-  }
 }
 
 uint8_t Wheel_i = 0;
@@ -229,9 +217,9 @@ void WheelAuto() {
 
 uint16_t state = 0;
 void WheelManual() {
-  fadeToBlackBy(leds, NUM_LEDS, (THRESHOLD_MAX * 2) + 1 - (threshold * 2));
+  fadeToBlackBy(leds, NUM_LEDS, map(threshold, 0, THRESHOLD_MAX, 2, 24));
 
-  uint8_t timeThreshold = threshold * 5 + 5;
+  uint8_t timeThreshold = map(threshold, 0, 9, 40, 10);
   uint64_t currentMs = millis();
   if (currentMs - startMs >= timeThreshold) {
     fill_rainbow(&(leds[state]), 1, prevHue, DELTA_HUE);
@@ -249,7 +237,8 @@ void EQ() {
 }
 
 typedef void LedFunction(void);
-LedFunction* gPatterns[] = { KickAndRun, KickAndRun, KickFlash, Spaceship, glitter, juggle, sinelon, confetti, WheelManual, WheelAuto, WheelAuto, EQ };
+LedFunction* gPatterns[] = { KickAndRun, KickAndRun, KickFlash, Spaceship, glitter, glitter, juggle, sinelon,
+        WheelManual, WheelAuto, WheelAuto, EQ };
 bool patternRawStatus[] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 uint8_t gPatternsSize = sizeof(gPatterns) / sizeof(gPatterns[0]);
 
