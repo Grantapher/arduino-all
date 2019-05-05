@@ -54,60 +54,60 @@ MD_REncoder thresholdRotary = MD_REncoder(THRESHOLD_ROTARY_INPUT_A, THRESHOLD_RO
 uint8_t threshold = THRESHOLD_ROTARY_START;
 
 void onData(int numBytes) {
-  int i = 0;
-  while (Wire.available()) {
-    input[i++] = Wire.read();
-  }
+    int i = 0;
+    while (Wire.available()) {
+        input[i++] = Wire.read();
+    }
 }
 
 void KickFlash() {
-  fadeToBlackBy(leds, NUM_LEDS, 32);
-  if (input[0] > threshold) {
-    fill_rainbow(leds, NUM_LEDS, 0xE0, (255 / NUM_LEDS) + 1);
-  }
+    fadeToBlackBy(leds, NUM_LEDS, 32);
+    if (input[0] > threshold) {
+        fill_rainbow(leds, NUM_LEDS, 0xE0, (255 / NUM_LEDS) + 1);
+    }
 }
 
 uint8_t colorIndex = 0;
 void KickAndRun() {
-  fadeToBlackBy( leds, NUM_LEDS, functionIndex % 2 ? 255 : 128);
+    fadeToBlackBy(leds, NUM_LEDS, functionIndex % 2 ? 255 : 128);
 
-  uint16_t i;
+    uint16_t i;
 
-  //increment active dots by rotating them all over
-  uint8_t carry = 0;
-  for (i = 0; i < BIT_BUFFER_SIZE; i++) {
-    uint8_t nextCarry = dotsBitBuffer[i] & 0x01;
-    dotsBitBuffer[i] >>= 1;
-    if (carry) dotsBitBuffer[i] |= 0x80;
-    carry = nextCarry;
-  }
-
-  //create new dot if necessary, increment starting color
-  if (input[0] > threshold) {
-      dotsBitBuffer[0] |= 0x80;
-      colorIndex = (colorIndex + 1) % MOD_THRESHOLD;
-  }
-
-  //fill all existing dots
-  CRGB color;
-  uint16_t colorsSeen = 0;
-  uint16_t maxDots = NUM_LEDS / 2;
-  for (i = 0; i < maxDots; i++) {
-    if (dotsBitBuffer[i / 8] & (0x80 >> i % 8)) {
-      fill_rainbow(&color, 1, map((colorIndex + colorsSeen) % MOD_THRESHOLD, 0, MOD_THRESHOLD, 0, 255), DELTA_HUE);
-      colorsSeen = (colorsSeen + MOD_THRESHOLD - 1) % MOD_THRESHOLD;
-      leds[getIndex(maxDots, NUM_LEDS, -i)] |= color;
-      leds[getIndex(maxDots, NUM_LEDS, +i)] |= color;
+    //increment active dots by rotating them all over
+    uint8_t carry = 0;
+    for (i = 0; i < BIT_BUFFER_SIZE; i++) {
+        uint8_t nextCarry = dotsBitBuffer[i] & 0x01;
+        dotsBitBuffer[i] >>= 1;
+        if (carry) dotsBitBuffer[i] |= 0x80;
+        carry = nextCarry;
     }
-  }
+
+    //create new dot if necessary, increment starting color
+    if (input[0] > threshold) {
+        dotsBitBuffer[0] |= 0x80;
+        colorIndex = (colorIndex + 1) % MOD_THRESHOLD;
+    }
+
+    //fill all existing dots
+    CRGB color;
+    uint16_t colorsSeen = 0;
+    uint16_t maxDots = NUM_LEDS / 2;
+    for (i = 0; i < maxDots; i++) {
+        if (dotsBitBuffer[i / 8] & (0x80 >> i % 8)) {
+            fill_rainbow(&color, 1, map((colorIndex + colorsSeen) % MOD_THRESHOLD, 0, MOD_THRESHOLD, 0, 255), DELTA_HUE);
+            colorsSeen = (colorsSeen + MOD_THRESHOLD - 1) % MOD_THRESHOLD;
+            leds[getIndex(maxDots, NUM_LEDS, -i)] |= color;
+            leds[getIndex(maxDots, NUM_LEDS, +i)] |= color;
+        }
+    }
 }
 
 // Utility function to wrap array index
 int getIndex(int current, int maximum, int add) {
-  int ret = current + add;
-  if (ret < 0) ret += maximum;
-  if (ret > maximum) ret -= maximum;
-  return ret;
+    int ret = current + add;
+    if (ret < 0) ret += maximum;
+    if (ret > maximum) ret -= maximum;
+    return ret;
 }
 
 uint16_t prevPos = beatsin16(0, 0, SPOKE_LENGTH * 2);
@@ -119,7 +119,8 @@ void Spaceship() {
     for (uint8_t spoke = 0; spoke < NUM_SPOKES; spoke++) {
         if (diff >= 0) {
             fill_rainbow(&(leds[prevPos + spoke * SPOKE_LENGTH]), diff, prevHue, DELTA_HUE);
-        } else {
+        }
+        else {
             fill_rainbow(&(leds[pos + spoke * SPOKE_LENGTH]), -diff, prevHue + -diff * DELTA_HUE, DELTA_HUE);
         }
     }
@@ -130,137 +131,140 @@ void Spaceship() {
 }
 
 void glitter() {
-  // random colored speckles that blink in and fade smoothly
-  fadeToBlackBy(leds, NUM_LEDS, map(threshold, 0, THRESHOLD_MAX, 1, 10));
+    // random colored speckles that blink in and fade smoothly
+    fadeToBlackBy(leds, NUM_LEDS, map(threshold, 0, THRESHOLD_MAX, 1, 10));
 
-  uint8_t timeThreshold = map(threshold, 0, THRESHOLD_MAX, 200, 8);
-  uint64_t currentMs = millis();
-  if (currentMs - startMs >= timeThreshold) {
-      if (functionIndex % 2) {
-          leds[random16(NUM_LEDS)] += CRGB::White;
-      } else {
-          leds[random16(NUM_LEDS)] += CHSV(random8(255), 200, 255);
-      }
-    startMs = currentMs;
-  }
+    uint8_t timeThreshold = map(threshold, 0, THRESHOLD_MAX, 200, 8);
+    uint64_t currentMs = millis();
+    if (currentMs - startMs >= timeThreshold) {
+        if (functionIndex % 2) {
+            leds[random16(NUM_LEDS)] += CRGB::White;
+        }
+        else {
+            leds[random16(NUM_LEDS)] += CHSV(random8(255), 200, 255);
+        }
+        startMs = currentMs;
+    }
 }
 
-uint16_t prevJugglePos[8] = { 0,0,0,0,0,0,0,0 };
+uint16_t prevJugglePos[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 void juggle() {
-  // eight colored dots, weaving in and out of sync with each other
-  fadeToBlackBy(leds, NUM_LEDS, map(threshold, 0, THRESHOLD_MAX, 64, 168));
+    // eight colored dots, weaving in and out of sync with each other
+    fadeToBlackBy(leds, NUM_LEDS, map(threshold, 0, THRESHOLD_MAX, 64, 168));
 
-  byte dothue = 0;
-  uint8_t speed = map(threshold, 0, THRESHOLD_MAX, 3, 8);
-  uint8_t dotSpeedDiff = map(threshold, 0, THRESHOLD_MAX, 1, 5);
-  for (int i = 0; i < 8; i++) {
-    //get color for dot
-    CHSV color = CHSV(dothue, 200, 255);
-    dothue += 32;
+    byte dothue = 0;
+    uint8_t speed = map(threshold, 0, THRESHOLD_MAX, 3, 8);
+    uint8_t dotSpeedDiff = map(threshold, 0, THRESHOLD_MAX, 1, 5);
+    for (int i = 0; i < 8; i++) {
+        //get color for dot
+        CHSV color = CHSV(dothue, 200, 255);
+        dothue += 32;
 
-    uint16_t pos = beatsin16(speed + i * dotSpeedDiff, 0, NUM_LEDS);
-    int16_t diff = pos - prevJugglePos[i];
-    int j;
-    if(diff > 0) {
-        for (j = 0; j < diff; j++) {
-            leds[prevJugglePos[i] + j] |= color;
+        uint16_t pos = beatsin16(speed + i * dotSpeedDiff, 0, NUM_LEDS);
+        int16_t diff = pos - prevJugglePos[i];
+        int j;
+        if (diff > 0) {
+            for (j = 0; j < diff; j++) {
+                leds[prevJugglePos[i] + j] |= color;
+            }
         }
-    }
-    else if (diff <= 0) {
-        for (j = 0; j < -diff; j++) {
-            leds[pos + j] |= color;
+        else if (diff <= 0) {
+            for (j = 0; j < -diff; j++) {
+                leds[pos + j] |= color;
+            }
         }
+
+        prevJugglePos[i] = pos;
+
     }
-
-    prevJugglePos[i] = pos;
-
-  }
 }
 
 uint16_t prevSinPos = 0;
 void sinelon() {
-  // a colored dot sweeping back and forth, with fading trails
-  fadeToBlackBy( leds, NUM_LEDS, map(threshold, 0, THRESHOLD_MAX, 4, 84));
-  uint16_t pos = beatsin16(map(threshold, 0, THRESHOLD_MAX, 6, 66), 0, NUM_LEDS);
+    // a colored dot sweeping back and forth, with fading trails
+    fadeToBlackBy(leds, NUM_LEDS, map(threshold, 0, THRESHOLD_MAX, 4, 84));
+    uint16_t pos = beatsin16(map(threshold, 0, THRESHOLD_MAX, 6, 66), 0, NUM_LEDS);
 
-  // positive means increasing, negative means decreasing
-  int16_t diff = pos - prevSinPos;
-  if (diff == 0) return;
+    // positive means increasing, negative means decreasing
+    int16_t diff = pos - prevSinPos;
+    if (diff == 0) return;
 
-  if (diff > 0) {
-    fill_rainbow(&(leds[prevSinPos]), diff, prevHue, 2);
-    prevHue += 2 * diff;
-  } else {
-    diff = -diff;
-    fill_rainbow(&(leds[pos]), diff, prevHue + 2 * diff, -2);
-    prevHue += 2 * diff;
-  }
+    if (diff > 0) {
+        fill_rainbow(&(leds[prevSinPos]), diff, prevHue, 2);
+        prevHue += 2 * diff;
+    }
+    else {
+        diff = -diff;
+        fill_rainbow(&(leds[pos]), diff, prevHue + 2 * diff, -2);
+        prevHue += 2 * diff;
+    }
 
-  prevSinPos = pos;
+    prevSinPos = pos;
 }
 
 uint8_t Wheel_i = 0;
 void WheelAuto() {
-  //todo perhaps add beat detection if possible?
-  fadeToBlackBy(leds, NUM_LEDS, 16);
-  if (input[0] > threshold) {
-    Wheel_i = (Wheel_i + 1) % NUM_SPOKES;
-    if (functionIndex % 2) {
-      CRGB color;
-      fill_rainbow(&color, 1, map(Wheel_i, 0, NUM_SPOKES, 0, 255), 0);
-      fill_solid(&(leds[Wheel_i * SPOKE_LENGTH]), SPOKE_LENGTH, color);
-    } else {
-      fill_rainbow(&(leds[Wheel_i * SPOKE_LENGTH]), SPOKE_LENGTH, 0, 255 / SPOKE_LENGTH);
+    //todo perhaps add beat detection if possible?
+    fadeToBlackBy(leds, NUM_LEDS, 16);
+    if (input[0] > threshold) {
+        Wheel_i = (Wheel_i + 1) % NUM_SPOKES;
+        if (functionIndex % 2) {
+            CRGB color;
+            fill_rainbow(&color, 1, map(Wheel_i, 0, NUM_SPOKES, 0, 255), 0);
+            fill_solid(&(leds[Wheel_i * SPOKE_LENGTH]), SPOKE_LENGTH, color);
+        }
+        else {
+            fill_rainbow(&(leds[Wheel_i * SPOKE_LENGTH]), SPOKE_LENGTH, 0, 255 / SPOKE_LENGTH);
+        }
     }
-  }
 }
 
 uint16_t state = 0;
 void WheelManual() {
-  fadeToBlackBy(leds, NUM_LEDS, map(threshold, 0, THRESHOLD_MAX, 2, 24));
+    fadeToBlackBy(leds, NUM_LEDS, map(threshold, 0, THRESHOLD_MAX, 2, 24));
 
-  uint8_t timeThreshold = map(threshold, 0, 9, 40, 10);
-  uint64_t currentMs = millis();
-  if (currentMs - startMs >= timeThreshold) {
-    fill_rainbow(&(leds[state]), 1, prevHue, DELTA_HUE);
-    state = (state + 1) % NUM_LEDS;
-    startMs = currentMs;
-    prevHue += DELTA_HUE;
-  }
+    uint8_t timeThreshold = map(threshold, 0, 9, 40, 10);
+    uint64_t currentMs = millis();
+    if (currentMs - startMs >= timeThreshold) {
+        fill_rainbow(&(leds[state]), 1, prevHue, DELTA_HUE);
+        state = (state + 1) % NUM_LEDS;
+        startMs = currentMs;
+        prevHue += DELTA_HUE;
+    }
 }
 
 void EQ() {
-  fadeToBlackBy( leds, NUM_LEDS, 0x28);
-  for (size_t x = 0; x < 8; x++) {
-    fill_rainbow(&(leds[x * SPOKE_LENGTH]), map(input[x], 0, 10, 0, SPOKE_LENGTH), 0, DELTA_HUE);
-  }
+    fadeToBlackBy(leds, NUM_LEDS, 0x28);
+    for (size_t x = 0; x < 8; x++) {
+        fill_rainbow(&(leds[x * SPOKE_LENGTH]), map(input[x], 0, 10, 0, SPOKE_LENGTH), 0, DELTA_HUE);
+    }
 }
 
 typedef void LedFunction(void);
 LedFunction* gPatterns[] = { KickAndRun, KickAndRun, KickFlash, Spaceship, glitter, glitter, juggle, sinelon,
-        WheelManual, WheelAuto, WheelAuto, EQ };
-bool patternRawStatus[] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+WheelManual, WheelAuto, WheelAuto, EQ };
+bool patternRawStatus[] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
 uint8_t gPatternsSize = sizeof(gPatterns) / sizeof(gPatterns[0]);
 
 LedFunction* prevFunction = gPatterns[FUNCTION_ROTARY_START];
 void updateLeds() {
-  LedFunction* currentFunction = gPatterns[functionIndex];
-  if (prevFunction != currentFunction) {
-    memset(dotsBitBuffer, 0, sizeof(dotsBitBuffer));
-  }
-  prevFunction = currentFunction;
-  currentFunction();
-  FastLED.show();
+    LedFunction* currentFunction = gPatterns[functionIndex];
+    if (prevFunction != currentFunction) {
+        memset(dotsBitBuffer, 0, sizeof(dotsBitBuffer));
+    }
+    prevFunction = currentFunction;
+    currentFunction();
+    FastLED.show();
 }
 
-uint8_t updateRotaryState(MD_REncoder* rotary, int8_t rotaryCount, uint8_t upperBound) {
-  uint8_t rotaryState = rotary->read();
-  if (rotaryState) {
-    rotaryState != DIR_CW ? rotaryCount++ : rotaryCount--;
-    if (rotaryCount < 0) rotaryCount = upperBound - 1;
-    rotaryCount = rotaryCount % upperBound;
-  }
-  return rotaryCount;
+uint8_t updateRotaryState(MD_REncoder * rotary, int8_t rotaryCount, uint8_t upperBound) {
+    uint8_t rotaryState = rotary->read();
+    if (rotaryState) {
+        rotaryState != DIR_CW ? rotaryCount++ : rotaryCount--;
+        if (rotaryCount < 0) rotaryCount = upperBound - 1;
+        rotaryCount = rotaryCount % upperBound;
+    }
+    return rotaryCount;
 }
 
 void updateRotaries() {
@@ -269,77 +273,79 @@ void updateRotaries() {
 }
 
 void printArray(int8_t ray[], size_t len) {
-  log_print("[ ");
-  uint8_t i;
-  for (i = 0; i < len; i++) {
-    log_printf("%2d", ray[i]);
-    if (i != 7) {
-      log_print(", ");
+    log_print("[ ");
+    uint8_t i;
+    for (i = 0; i < len; i++) {
+        log_printf("%2d", ray[i]);
+        if (i != 7) {
+            log_print(", ");
+        }
     }
-  }
-  log_print(" ]. ");
+    log_print(" ]. ");
 }
 
 /* Check if a new tick has passed. */
 bool updateTick() {
-  unsigned long currentMs = millis();
-  tickPr = currentMs - startMsPr;
-  startMsPr = currentMs;
-  return true;
+    unsigned long currentMs = millis();
+    tickPr = currentMs - startMsPr;
+    startMsPr = currentMs;
+    return true;
 }
 
 void onReq() {
-  Wire.write(patternRawStatus[functionIndex]);
+    Wire.write(patternRawStatus[functionIndex]);
 }
 
 void setup() {
-  Serial.begin(115200);
-  delay(500);
+    Serial.begin(115200);
+    delay(500);
 
-  FastLED.addLeds <WS2812B, DATA_PIN, GRB> (leds, NUM_LEDS);
-  FastLED.setBrightness(BRIGHTNESS);
+    FastLED.addLeds <WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);
+    FastLED.setBrightness(BRIGHTNESS);
 
-  // rotary encoder starts
-  functionRotary.begin();
-  thresholdRotary.begin();
+    // rotary encoder starts
+    functionRotary.begin();
+    thresholdRotary.begin();
 
-  // buttons input setup
-  pinMode(FUNCTION_ROTARY_INPUT_BTN, INPUT);
-  pinMode(THRESHOLD_ROTARY_INPUT_BTN, INPUT);
+    // buttons input setup
+    pinMode(FUNCTION_ROTARY_INPUT_BTN, INPUT);
+    pinMode(THRESHOLD_ROTARY_INPUT_BTN, INPUT);
 
-  // start clock
-  startMs = millis();
+    // start clock
+    startMs = millis();
 
-  //setup data sending from sound arduino
-  Wire.begin(1);
-  Wire.onReceive(onData);
-  Wire.onRequest(onReq);
+    //setup data sending from sound arduino
+    Wire.begin(1);
+    Wire.onReceive(onData);
+    Wire.onRequest(onReq);
 
-  // start dotBitBuffer with zeroes
-  memset(dotsBitBuffer, 0, sizeof(dotsBitBuffer));
+    // start dotBitBuffer with zeroes
+    memset(dotsBitBuffer, 0, sizeof(dotsBitBuffer));
 }
 
 /* Main loop code */
 void loop() {
-  updateRotaries();
-  updateTick();
-  if (digitalRead(FUNCTION_ROTARY_INPUT_BTN) == LOW) {
-      FastLED.clear();
-      fill_rainbow(leds, (functionIndex + 1) * NUM_LEDS / gPatternsSize, 0, 255 / gPatternsSize);
-      FastLED.show();
-      FastLED.clear();
-  } else if (digitalRead(THRESHOLD_ROTARY_INPUT_BTN) == LOW) {
-      FastLED.clear();
-      fill_rainbow(leds, (threshold + 1) * NUM_LEDS / THRESHOLD_MAX, 0, 255 / THRESHOLD_MAX);
-      FastLED.show();
-      FastLED.clear();
-  } else {
-      updateLeds();
+    updateRotaries();
+    updateTick();
+    if (digitalRead(FUNCTION_ROTARY_INPUT_BTN) == LOW) {
+        FastLED.clear();
+        fill_rainbow(leds, (functionIndex + 1) * NUM_LEDS / gPatternsSize, 0, 255 / gPatternsSize);
+        FastLED.show();
+        FastLED.clear();
+    }
+    else if (digitalRead(THRESHOLD_ROTARY_INPUT_BTN) == LOW) {
+        FastLED.clear();
+        fill_rainbow(leds, (threshold + 1) * NUM_LEDS / THRESHOLD_MAX, 0, 255 / THRESHOLD_MAX);
+        FastLED.show();
+        FastLED.clear();
+    }
+    else {
+        updateLeds();
 
-      printArray(input, 8);
-      log_printf("threshold: %2u. ", threshold);
-      log_printf("functionIndex: %2u. ", functionIndex);
-      log_printf("Tick: %3u. ", tickPr);
-      log_println();
-  }
+        printArray(input, 8);
+        log_printf("threshold: %2u. ", threshold);
+        log_printf("functionIndex: %2u. ", functionIndex);
+        log_printf("Tick: %3u. ", tickPr);
+        log_println();
+    }
 }
