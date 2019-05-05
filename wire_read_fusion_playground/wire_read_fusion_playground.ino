@@ -12,7 +12,7 @@
 #define FUNCTION_ROTARY_INPUT_BTN 5
 #define FUNCTION_ROTARY_INPUT_A 6
 #define FUNCTION_ROTARY_INPUT_B 7
-#define FUNCTION_ROTARY_START 9
+#define FUNCTION_ROTARY_START 0
 
 #define THRESHOLD_ROTARY_INPUT_BTN 8
 #define THRESHOLD_ROTARY_INPUT_A 9
@@ -116,17 +116,26 @@ void Spaceship() {
 
     uint16_t pos = beatsin16(map(threshold, 0, THRESHOLD_MAX, 8, 50), 0, SPOKE_LENGTH * 2);
     int16_t diff = pos - prevPos;
-    for (uint8_t spoke = 0; spoke < NUM_SPOKES; spoke++) {
+    for (int16_t spoke = -1; spoke < NUM_SPOKES; spoke++) {
+        if (diff == 0) diff = 1;
+        
+        int16_t index;
         if (diff >= 0) {
-            fill_rainbow(&(leds[prevPos + spoke * SPOKE_LENGTH]), diff, prevHue, DELTA_HUE);
+            index = prevPos + spoke * SPOKE_LENGTH;
+            if (index != constrain(index, 0, NUM_LEDS - 1)) continue;
+            fill_rainbow(&(leds[index]), diff, prevHue, DELTA_HUE);
         }
         else {
-            fill_rainbow(&(leds[pos + spoke * SPOKE_LENGTH]), -diff, prevHue + -diff * DELTA_HUE, DELTA_HUE);
+            index = pos + spoke * SPOKE_LENGTH;
+            if (index != constrain(index, 0, NUM_LEDS - 1)) continue;
+            fill_rainbow(&(leds[index]), -diff, prevHue + -diff * DELTA_HUE, DELTA_HUE);
         }
     }
 
-    prevPos = pos;
-    prevHue += (diff < 0 ? -diff : diff) * DELTA_HUE; // depends on uint8_t overflows
+    if (prevPos != pos) {
+        prevPos = pos;
+        prevHue += (diff < 0 ? -diff : diff) * DELTA_HUE; // depends on uint8_t overflows
+    }
 
 }
 
