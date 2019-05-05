@@ -12,12 +12,12 @@
 #define FUNCTION_ROTARY_INPUT_BTN 5
 #define FUNCTION_ROTARY_INPUT_A 6
 #define FUNCTION_ROTARY_INPUT_B 7
-#define FUNCTION_ROTARY_START 9
+#define FUNCTION_ROTARY_START 3
 
 #define THRESHOLD_ROTARY_INPUT_BTN 8
 #define THRESHOLD_ROTARY_INPUT_A 9
 #define THRESHOLD_ROTARY_INPUT_B 10
-#define THRESHOLD_ROTARY_START 3
+#define THRESHOLD_ROTARY_START 0
 #define THRESHOLD_MAX 10
 
 #define TICK_MIN 5
@@ -248,19 +248,19 @@ void EQ() {
   }
 }
 
-typedef void (*LedFunctionArray[])(void);
-LedFunctionArray gPatterns = { KickAndRun, KickAndRun, KickFlash, Spaceship, glitter, juggle, sinelon, confetti, WheelManual, WheelAuto, WheelAuto, EQ };
+typedef void LedFunction(void);
+LedFunction* gPatterns[] = { KickAndRun, KickAndRun, KickFlash, Spaceship, glitter, juggle, sinelon, confetti, WheelManual, WheelAuto, WheelAuto, EQ };
 bool patternRawStatus[] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 uint8_t gPatternsSize = sizeof(gPatterns) / sizeof(gPatterns[0]);
 
-uint8_t prevFunctionIndex = FUNCTION_ROTARY_START;
+LedFunction* prevFunction = gPatterns[FUNCTION_ROTARY_START];
 void updateLeds() {
-  if (prevFunctionIndex != functionIndex) {
-    FastLED.clear();
+  LedFunction* currentFunction = gPatterns[functionIndex];
+  if (prevFunction != currentFunction) {
     memset(dotsBitBuffer, 0, sizeof(dotsBitBuffer));
   }
-  prevFunctionIndex = functionIndex;
-  gPatterns[functionIndex]();
+  prevFunction = currentFunction;
+  currentFunction();
   FastLED.show();
 }
 
