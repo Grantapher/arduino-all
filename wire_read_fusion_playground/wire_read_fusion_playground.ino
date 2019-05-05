@@ -12,12 +12,12 @@
 #define FUNCTION_ROTARY_INPUT_BTN 5
 #define FUNCTION_ROTARY_INPUT_A 6
 #define FUNCTION_ROTARY_INPUT_B 7
-#define FUNCTION_ROTARY_START 5
+#define FUNCTION_ROTARY_START 9
 
 #define THRESHOLD_ROTARY_INPUT_BTN 8
 #define THRESHOLD_ROTARY_INPUT_A 9
 #define THRESHOLD_ROTARY_INPUT_B 10
-#define THRESHOLD_ROTARY_START 0
+#define THRESHOLD_ROTARY_START 3
 #define THRESHOLD_MAX 10
 
 #define TICK_MIN 5
@@ -69,7 +69,7 @@ void KickFlash() {
 
 uint8_t colorIndex = 0;
 void KickAndRun() {
-  fadeToBlackBy( leds, NUM_LEDS, functionIndex ? 255 : 128);
+  fadeToBlackBy( leds, NUM_LEDS, functionIndex % 2 ? 255 : 128);
 
   uint16_t i;
 
@@ -213,24 +213,17 @@ void confetti() {
 
 uint8_t Wheel_i = 0;
 void WheelAuto() {
-  //todo consider changing the color to do the rainbow in segments rather than full rainbow in each segment
   //todo perhaps add beat detection if possible?
-  bool thresholdMet = input[0] >= threshold;
-
-  if (!thresholdMet) {
-    fadeToBlackBy(leds, NUM_LEDS, 16);
-  } else {
-    int startLed = Wheel_i * SPOKE_LENGTH;
-    int endLed = startLed + SPOKE_LENGTH;
-    fadeToBlackBy(leds, startLed, 16);
-    fadeToBlackBy(&(leds[endLed]), NUM_LEDS - endLed, 16);
-  }
-
-  uint64_t currentMs = millis();
-  if (thresholdMet) {
+  fadeToBlackBy(leds, NUM_LEDS, 16);
+  if (input[0] > threshold) {
     Wheel_i = (Wheel_i + 1) % NUM_SPOKES;
-    fill_rainbow(&(leds[Wheel_i * SPOKE_LENGTH]), SPOKE_LENGTH, 0, 255 / SPOKE_LENGTH);
-    startMs = currentMs;
+    if (functionIndex % 2) {
+      CRGB color;
+      fill_rainbow(&color, 1, map(Wheel_i, 0, NUM_SPOKES, 0, 255), 0);
+      fill_solid(&(leds[Wheel_i * SPOKE_LENGTH]), SPOKE_LENGTH, color);
+    } else {
+      fill_rainbow(&(leds[Wheel_i * SPOKE_LENGTH]), SPOKE_LENGTH, 0, 255 / SPOKE_LENGTH);
+    }
   }
 }
 
@@ -256,8 +249,8 @@ void EQ() {
 }
 
 typedef void (*LedFunctionArray[])(void);
-LedFunctionArray gPatterns = { KickAndRun, KickAndRun, KickFlash, Spaceship, glitter, juggle, sinelon, confetti, WheelManual, WheelAuto, EQ };
-bool patternRawStatus[] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
+LedFunctionArray gPatterns = { KickAndRun, KickAndRun, KickFlash, Spaceship, glitter, juggle, sinelon, confetti, WheelManual, WheelAuto, WheelAuto, EQ };
+bool patternRawStatus[] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 uint8_t gPatternsSize = sizeof(gPatterns) / sizeof(gPatterns[0]);
 
 uint8_t prevFunctionIndex = FUNCTION_ROTARY_START;
