@@ -12,12 +12,12 @@
 #define FUNCTION_ROTARY_INPUT_BTN 5
 #define FUNCTION_ROTARY_INPUT_A 6
 #define FUNCTION_ROTARY_INPUT_B 7
-#define FUNCTION_ROTARY_START 0
+#define FUNCTION_ROTARY_START 5
 
 #define THRESHOLD_ROTARY_INPUT_BTN 8
 #define THRESHOLD_ROTARY_INPUT_A 9
 #define THRESHOLD_ROTARY_INPUT_B 10
-#define THRESHOLD_ROTARY_START 2
+#define THRESHOLD_ROTARY_START 0
 #define THRESHOLD_MAX 10
 
 #define TICK_MIN 5
@@ -111,17 +111,17 @@ int getIndex(int current, int maximum, int add) {
 }
 
 uint8_t Spaceship_i = 0;
-uint16_t prevPos = sin8(0);
+uint16_t prevPos = beatsin16(0);
 void Spaceship() {
   //todo consider thresholding logic to speed up the dots
-  fadeToBlackBy( leds, NUM_LEDS, 24);
+  //todo add the logic from sinelon
 
-  uint64_t currentMs = millis();
-  if (currentMs - startMs >= 10) {
+    fadeToBlackBy(leds, NUM_LEDS, threshold * 8 + 4);
+
     CRGB color;
     fill_rainbow(&color, 1, prevHue, DELTA_HUE);
 
-    uint8_t pos = map(sin8(Spaceship_i++), 0, 255, 0, SPOKE_LENGTH * 2);
+    uint16_t pos = beatsin16(Spaceship_i++, 0, SPOKE_LENGTH * 2);
 
     for (uint8_t spoke = 0; spoke < NUM_SPOKES; spoke++) {
       leds[(spoke * SPOKE_LENGTH + pos) % NUM_LEDS] = color;
@@ -132,26 +132,47 @@ void Spaceship() {
       prevHue += DELTA_HUE;
     }
 
+}
+
+void glitter() {
+  // random colored speckles that blink in and fade smoothly
+  fadeToBlackBy(leds, NUM_LEDS, THRESHOLD_MAX + 1 - threshold);
+
+  uint8_t timeThreshold = threshold * 10 + 10;
+  uint64_t currentMs = millis();
+  if (currentMs - startMs >= timeThreshold) {
+    leds[random16(NUM_LEDS)] += CRGB::White;
     startMs = currentMs;
   }
 }
 
-void glitter() {
-  //todo copy glitter's threshold logic
-  fadeToBlackBy( leds, NUM_LEDS, 3);
-  if ( random8() < 20) {
-    leds[ random16(NUM_LEDS) ] += CRGB::White;
-  }
-}
-
+uint16_t prevJugglePos[8] = { 0,0,0,0,0,0,0,0 };
 void juggle() {
-  //todo also needs previous position taken into account like sinelon
-  //todo have threshold controll speed like sinelon  // eight colored dots, weaving in and out of sync with each other
-  fadeToBlackBy( leds, NUM_LEDS, 20);
+  // eight colored dots, weaving in and out of sync with each other
+  fadeToBlackBy(leds, NUM_LEDS, threshold * 8 + 64);
+
   byte dothue = 0;
-  for ( int i = 0; i < 8; i++) {
-    leds[beatsin16(i + 7, 0, NUM_LEDS)] |= CHSV(dothue, 200, 255);
+  for (int i = 0; i < 8; i++) {
+    //get color for dot
+    CHSV color = CHSV(dothue, 200, 255);
     dothue += 32;
+
+    uint16_t pos = beatsin16((threshold + 6) / 2 + i * (threshold + 2 / 2), 0, NUM_LEDS);
+    int16_t diff = pos - prevJugglePos[i];
+    int j;
+    if(diff > 0) {
+        for (j = 0; j < diff; j++) {
+            leds[prevJugglePos[i] + j] |= color;
+        }
+    }
+    else if (diff <= 0) {
+        for (j = 0; j < -diff; j++) {
+            leds[pos + j] |= color;
+        }
+    }
+
+    prevJugglePos[i] = pos;
+
   }
 }
 
@@ -176,7 +197,6 @@ void sinelon() {
 
   prevSinPos = pos;
 }
-
 
 void confetti() {
   // random colored speckles that blink in and fade smoothly
@@ -268,7 +288,7 @@ void updateRotaries() {
 
 void printArray(int8_t ray[], size_t len) {
   log_print("[ ");
-  int i;
+  uint8_t i;
   for (i = 0; i < len; i++) {
     log_printf("%2d", ray[i]);
     if (i != 7) {
@@ -283,6 +303,7 @@ bool updateTick() {
   unsigned long currentMs = millis();
   tickPr = currentMs - startMsPr;
   startMsPr = currentMs;
+  return true;
 }
 
 void onReq() {
@@ -322,12 +343,12 @@ void loop() {
   updateTick();
   if (digitalRead(FUNCTION_ROTARY_INPUT_BTN) == LOW) {
       FastLED.clear();
-      fill_rainbow(leds, functionIndex + 1, 0, 255 / gPatternsSize);
+      fill_rainbow(leds, (functionIndex + 1) * NUM_LEDS / gPatternsSize, 0, 255 / gPatternsSize);
       FastLED.show();
       FastLED.clear();
   } else if (digitalRead(THRESHOLD_ROTARY_INPUT_BTN) == LOW) {
       FastLED.clear();
-      fill_rainbow(leds, threshold + 1, 0, 255 / THRESHOLD_MAX);
+      fill_rainbow(leds, (threshold + 1) * NUM_LEDS / THRESHOLD_MAX, 0, 255 / THRESHOLD_MAX);
       FastLED.show();
       FastLED.clear();
   } else {
