@@ -9,6 +9,9 @@
 #define NUM_LEDS 300
 #define DATA_PIN 2
 
+#define MAX_VOLTS 5
+#define MAX_MILLIAMPS 2500
+
 #define FUNCTION_ROTARY_INPUT_BTN 5
 #define FUNCTION_ROTARY_INPUT_A 6
 #define FUNCTION_ROTARY_INPUT_B 7
@@ -305,7 +308,7 @@ void setup() {
     delay(500);
 
     FastLED.addLeds <WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);
-    FastLED.setBrightness(BRIGHTNESS);
+    FastLED.setMaxPowerInVoltsAndMilliamps(MAX_VOLTS, MAX_MILLIAMPS);
 
     // rotary encoder starts
     functionRotary.begin();
