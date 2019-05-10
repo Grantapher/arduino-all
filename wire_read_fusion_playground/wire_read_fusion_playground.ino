@@ -6,11 +6,15 @@
 // Include must be placed after LOG definition to work
 #include "log.h"
 
+//we don't care about speed
+#define ENABLE_SPEED 0
+
 #define NUM_LEDS 300
 #define DATA_PIN 2
 
 #define MAX_VOLTS 5
 #define MAX_MILLIAMPS 2500
+#define MAX_BRIGHTNESS 0x80
 
 #define FUNCTION_ROTARY_INPUT_BTN 5
 #define FUNCTION_ROTARY_INPUT_A 6
@@ -279,6 +283,7 @@ void updateRotaries() {
     threshold = updateRotaryState(&thresholdRotary, threshold, THRESHOLD_MAX);
 }
 
+#ifdef LOG
 void printArray(int8_t ray[], size_t len) {
     log_print("[ ");
     uint8_t i;
@@ -299,16 +304,25 @@ bool updateTick() {
     return true;
 }
 
+#else
+void printArray(int8_t ray[], size_t len) {}
+bool updateTick() {}
+#endif
+
 void onReq() {
     Wire.write(patternRawStatus[functionIndex]);
 }
 
 void setup() {
+#ifdef LOG
     Serial.begin(115200);
+#endif 
+
     delay(500);
 
     FastLED.addLeds <WS2812B, DATA_PIN, GRB>(leds, NUM_LEDS);
     FastLED.setMaxPowerInVoltsAndMilliamps(MAX_VOLTS, MAX_MILLIAMPS);
+    FastLED.setBrightness(MAX_BRIGHTNESS);
 
     // rotary encoder starts
     functionRotary.begin();
@@ -335,15 +349,15 @@ void loop() {
     updateRotaries();
     updateTick();
     if (digitalRead(FUNCTION_ROTARY_INPUT_BTN) == LOW) {
-        FastLED.clear();
+        log_printf("function held");
+        fadeToBlackBy(leds, NUM_LEDS, 64);
         fill_rainbow(leds, (functionIndex + 1) * NUM_LEDS / gPatternsSize, 0, 255 / gPatternsSize);
         FastLED.show();
-        FastLED.clear();
     } else if (digitalRead(THRESHOLD_ROTARY_INPUT_BTN) == LOW) {
-        FastLED.clear();
+        log_printf("threshold held");
+        fadeToBlackBy(leds, NUM_LEDS, 64);
         fill_rainbow(leds, (threshold + 1) * NUM_LEDS / THRESHOLD_MAX, 0, 255 / THRESHOLD_MAX);
         FastLED.show();
-        FastLED.clear();
     } else {
         updateLeds();
 
@@ -351,6 +365,7 @@ void loop() {
         log_printf("threshold: %2u. ", threshold);
         log_printf("functionIndex: %2u. ", functionIndex);
         log_printf("Tick: %3u. ", tickPr);
-        log_println();
+
     }
+    log_println();
 }
