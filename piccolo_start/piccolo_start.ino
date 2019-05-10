@@ -4,7 +4,7 @@
 #include <ffft.h>
 
 // Log all to Serial, comment this line to disable logging
-#define LOG Serial
+//#define LOG Serial
 // Include must be placed after LOG definition to work
 #include "log.h"
 
@@ -163,6 +163,7 @@ void setup() {
     sei(); // Enable interrupts
 }
 
+#ifdef LOG
 void printArray(uint8_t ray[], size_t raySize) {
     log_print("[ ");
     size_t i;
@@ -174,18 +175,9 @@ void printArray(uint8_t ray[], size_t raySize) {
     }
     log_print(" ]. ");
 }
-
-void printShortArray(uint16_t ray[], size_t raySize) {
-    log_print("[");
-    size_t i;
-    for (i = 0; i < raySize; i++) {
-        log_printf("%3d", ray[i]);
-        if (i != raySize - 1) {
-            log_print(" ");
-        }
-    }
-    log_print("]. ");
-}
+#else
+void printArray(uint8_t ray[], size_t raySize) {}
+#endif
 
 void loop() {
     Wire.requestFrom(1, 1);
@@ -203,16 +195,12 @@ void loop() {
     fft_execute(bfly_buff);          // Process complex data
     fft_output(bfly_buff, spectrum); // Complex -> spectrum
 
-    //printShortArray(spectrum, 64);
-
     // Remove noise and apply EQ levels
     for (x = 0; x < FFT_N / 2; x++) {
         L = pgm_read_byte(&noise[x]);
         spectrum[x] = (spectrum[x] <= L) ? 0 :
             (((spectrum[x] - L) * (256L - pgm_read_byte(&eq[x]))) >> 8);
     }
-
-    //  printShortArray(spectrum, 64);
 
     // Downsample spectrum output to 8 columns:
     for (x = 0; x < 8; x++) {

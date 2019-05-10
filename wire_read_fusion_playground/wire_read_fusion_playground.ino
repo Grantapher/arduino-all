@@ -2,7 +2,7 @@
 #include <FastLED.h>
 #include <MD_REncoder.h>
 // Log all to Serial, comment this line to disable logging
-#define LOG Serial
+//#define LOG Serial
 // Include must be placed after LOG definition to work
 #include "log.h"
 
