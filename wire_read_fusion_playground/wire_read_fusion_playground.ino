@@ -1,13 +1,15 @@
 #include <Wire.h>
 #include <FastLED.h>
+
+//we don't care about speed
+#define ENABLE_SPEED 0
+#define ENABLE_PULLUPS 0
 #include <MD_REncoder.h>
+
 // Log all to Serial, comment this line to disable logging
 //#define LOG Serial
 // Include must be placed after LOG definition to work
 #include "log.h"
-
-//we don't care about speed
-#define ENABLE_SPEED 0
 
 #define NUM_LEDS 300
 #define DATA_PIN 2
@@ -271,7 +273,7 @@ void updateLeds() {
 uint8_t updateRotaryState(MD_REncoder * rotary, int8_t rotaryCount, uint8_t upperBound) {
     uint8_t rotaryState = rotary->read();
     if (rotaryState) {
-        rotaryState != DIR_CW ? rotaryCount++ : rotaryCount--;
+        rotaryState != DIR_CW ? rotaryCount-- : rotaryCount++;
         if (rotaryCount < 0) rotaryCount = upperBound - 1;
         rotaryCount = rotaryCount % upperBound;
     }
@@ -329,8 +331,8 @@ void setup() {
     thresholdRotary.begin();
 
     // buttons input setup
-    pinMode(FUNCTION_ROTARY_INPUT_BTN, INPUT);
-    pinMode(THRESHOLD_ROTARY_INPUT_BTN, INPUT);
+    pinMode(FUNCTION_ROTARY_INPUT_BTN, INPUT_PULLUP);
+    pinMode(THRESHOLD_ROTARY_INPUT_BTN, INPUT_PULLUP);
 
     // start clock
     startMs = millis();
