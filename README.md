@@ -9,7 +9,6 @@ Flashing LED Lights for a totem, sound sensitive. see https://github.com/Grantap
 * [Rotary Encoders](https://www.sparkfun.com/products/9117)
 * [Capacitors](https://smile.amazon.com/gp/product/B06XRDWF5X/)
 * [Resistors](https://smile.amazon.com/gp/product/B072BL2VX1/)
-* [Battery Pack](https://smile.amazon.com/gp/product/B019IFIJW8/)
 
 ### Prototyping Materials
 * [Arduino Nano Kit for becoming familiar with arduino programming](https://smile.amazon.com/gp/product/B077C3SDYF/)
@@ -25,3 +24,4 @@ Flashing LED Lights for a totem, sound sensitive. see https://github.com/Grantap
 * [Micro Cutter](https://smile.amazon.com/gp/product/B00FZPDG1K/)
 * [Silicone Soldering Mat](https://smile.amazon.com/gp/product/B06Y5KRFYR/)
 * [WS2812B Connectors](https://smile.amazon.com/gp/product/B00NBSH4CA/)
+* [Battery Pack](https://smile.amazon.com/gp/product/B019IFIJW8/)
