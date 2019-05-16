@@ -11,12 +11,12 @@
 // Include must be placed after LOG definition to work
 #include "log.h"
 
-#define NUM_LEDS 300
+#define NUM_LEDS 141
 #define DATA_PIN 2
 
 #define MAX_VOLTS 5
-#define MAX_MILLIAMPS 2500
-#define MAX_BRIGHTNESS 0x80
+#define MAX_MILLIAMPS 2400
+#define MAX_BRIGHTNESS 0x60
 
 #define FUNCTION_ROTARY_INPUT_BTN 5
 #define FUNCTION_ROTARY_INPUT_A 6
@@ -34,8 +34,6 @@
 
 #define DELTA_HUE 32
 #define NUM_SPOKES 8
-
-#define BRIGHTNESS 0x60
 
 #define BIT_BUFFER_SIZE ((NUM_LEDS / 16) + 1)
 #define MOD_THRESHOLD 8
@@ -222,12 +220,14 @@ void WheelAuto() {
     fadeToBlackBy(leds, NUM_LEDS, 16);
     if (input[0] > threshold) {
         Wheel_i = (Wheel_i + 1) % NUM_SPOKES;
+        uint16_t startIndex = Wheel_i * SPOKE_LENGTH + Wheel_i;
+
         if (functionIndex % 2) {
             CRGB color;
             fill_rainbow(&color, 1, map(Wheel_i, 0, NUM_SPOKES, 0, 255), 0);
-            fill_solid(&(leds[Wheel_i * SPOKE_LENGTH]), SPOKE_LENGTH, color);
+            fill_solid(&(leds[startIndex]), SPOKE_LENGTH + 1, color);
         } else {
-            fill_rainbow(&(leds[Wheel_i * SPOKE_LENGTH]), SPOKE_LENGTH, 0, 255 / SPOKE_LENGTH);
+            fill_rainbow(&(leds[startIndex]), SPOKE_LENGTH + 1, 0, 255 / SPOKE_LENGTH);
         }
     }
 }
