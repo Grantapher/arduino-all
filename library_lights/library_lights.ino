@@ -1,5 +1,6 @@
 #include <Wire.h>
 #include <FastLED.h>
+#include "Constants.h"
 
 //we don't care about speed
 #define ENABLE_SPEED 0
@@ -27,7 +28,6 @@
 #define THRESHOLD_ROTARY_INPUT_A 9
 #define THRESHOLD_ROTARY_INPUT_B 10
 #define THRESHOLD_ROTARY_START 9
-#define THRESHOLD_MAX 10
 
 #define TICK_MIN 5
 #define TICK_MAX 500
