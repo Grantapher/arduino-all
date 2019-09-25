@@ -21,12 +21,12 @@
 #define FUNCTION_ROTARY_INPUT_BTN 5
 #define FUNCTION_ROTARY_INPUT_A 6
 #define FUNCTION_ROTARY_INPUT_B 7
-#define FUNCTION_ROTARY_START 0
+#define FUNCTION_ROTARY_START 3
 
 #define THRESHOLD_ROTARY_INPUT_BTN 8
 #define THRESHOLD_ROTARY_INPUT_A 9
 #define THRESHOLD_ROTARY_INPUT_B 10
-#define THRESHOLD_ROTARY_START 6
+#define THRESHOLD_ROTARY_START 2
 #define THRESHOLD_MAX 10
 
 #define TICK_MIN 5
@@ -65,6 +65,25 @@ void onData(int numBytes) {
     while (Wire.available()) {
         input[i++] = Wire.read();
     }
+}
+
+void SolidColorByThreshold() {
+    fill_solid(leds, NUM_LEDS, CHSV(map(threshold, 0, THRESHOLD_MAX, 0, 0xFF), 0xFF, 0xFF));
+}
+
+void RainbowWheel() {
+    fill_rainbow(leds, NUM_LEDS, beat8(map(threshold, 0, THRESHOLD_MAX, 1, 0x66)), (0xFF / NUM_LEDS + 1) + 1);
+}
+
+int16_t fillStatus = 0;
+int8_t deltaHue = (0xFF / NUM_LEDS + 1) + 1;
+void Bars() {
+    fillStatus = constrain(fillStatus + (((int8_t) input[0]) / (threshold / 2 + 1)) - 1, 0, NUM_LEDS / 2);
+    fadeToBlackBy(leds, NUM_LEDS, 32);
+
+    fill_rainbow(&leds[NUM_LEDS - fillStatus - 1], fillStatus, 0, deltaHue);
+    fill_rainbow(leds, fillStatus, fillStatus * deltaHue, -deltaHue);
+    log_printf("fill: %3u. ", fillStatus);
 }
 
 void KickFlash() {
@@ -254,9 +273,8 @@ void EQ() {
 }
 
 typedef void LedFunction(void);
-LedFunction* gPatterns[] = { KickAndRun, KickAndRun, KickFlash, Spaceship, glitter, glitter, juggle, sinelon,
-WheelManual, WheelAuto, WheelAuto, EQ };
-bool patternRawStatus[] = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
+LedFunction* gPatterns[] = { KickAndRun, KickAndRun, SolidColorByThreshold, RainbowWheel, Bars, KickFlash,
+Spaceship, glitter, glitter, juggle, sinelon, WheelManual, WheelAuto, WheelAuto, EQ };
 uint8_t gPatternsSize = sizeof(gPatterns) / sizeof(gPatterns[0]);
 
 LedFunction* prevFunction = gPatterns[FUNCTION_ROTARY_START];
@@ -312,7 +330,9 @@ bool updateTick() {}
 #endif
 
 void onReq() {
-    Wire.write(patternRawStatus[functionIndex]);
+    Wire.write(1);
+    // deprecatd, was always one
+    // Wire.write(patternRawStatus[functionIndex]);
 }
 
 void setup() {
